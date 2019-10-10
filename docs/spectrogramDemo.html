@@ -38,6 +38,7 @@
           var source = audioCtx.createMediaStreamSource(stream);
         
           var analyser = audioCtx.createAnalyser();
+          analyser.smoothingTimeConstant = 0;
           source.connect(analyser);
         
           var frequencyArray = new Float32Array(analyser.frequencyBinCount);
@@ -77,7 +78,9 @@
             // Set chart options
             var options = {'title':'Fourier Transform',
                           'width':400,
-                          'height':300};
+                          'height':300,
+                          'vAxis.minValue': -100}
+                        
 
             // Instantiate and draw our chart, passing in some options.
             var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
