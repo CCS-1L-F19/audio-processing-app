@@ -24,96 +24,103 @@
 <script type="text/javascript">
 
   var myAudio = document.querySelector('audio');
+  var graphData = [];
 
   if (navigator.mediaDevices) {
-      console.log('getUserMedia supported.');
-      navigator.mediaDevices.getUserMedia ({audio: true, video: false})
-      .then(function(stream) {
-          // Create a MediaStreamAudioSourceNode
-          // Feed the HTMLMediaElement into it
-          var audioCtx = new AudioContext();
-          var source = audioCtx.createMediaStreamSource(stream);
+    console.log('getUserMedia supported.');
+    navigator.mediaDevices.getUserMedia ({audio: true, video: false})
+    .then(function(stream) {
+        // Create a MediaStreamAudioSourceNode
+        // Feed the HTMLMediaElement into it
+        var audioCtx = new AudioContext();
+        var source = audioCtx.createMediaStreamSource(stream);
+      
+        var analyser = audioCtx.createAnalyser();
+        analyser.smoothingTimeConstant = 0;
+        source.connect(analyser);
+      
+        var frequencyArray = new Float32Array(analyser.frequencyBinCount);
+        graphData = new Array(frequencyArray.length);
         
-          var analyser = audioCtx.createAnalyser();
-          analyser.smoothingTimeConstant = 0;
-          source.connect(analyser);
-        
-          var frequencyArray = new Float32Array(analyser.frequencyBinCount);
-          var graphData = new Array(frequencyArray.length);
-          
-          for(var i = 0; i < graphData.length; i++) {
-            graphData[i] = [i * 22050 / frequencyArray.length, -100, -100]
-          }
+        for(var i = 0; i < graphData.length; i++) {
+          graphData[i] = [i * 22050 / frequencyArray.length, -100, -100]
+        }
 
-          function createSpectrogram() {
-  
-            analyser.getFloatFrequencyData(frequencyArray);
+        function createSpectrogram() {
 
-            for(i = 0; i < frequencyArray.length; i++) {
-              if(frequencyArray[i] != -Infinity) {
-                graphData[i][1] = frequencyArray[i];
-                if(frequencyArray[i] > graphData[i][2]) {
-                  graphData[i][2] = frequencyArray[i];
-                }
+          analyser.getFloatFrequencyData(frequencyArray);
+
+          for(i = 0; i < frequencyArray.length; i++) {
+            if(frequencyArray[i] != -Infinity) {
+              graphData[i][1] = frequencyArray[i];
+              if(frequencyArray[i] > graphData[i][2]) {
+                graphData[i][2] = frequencyArray[i];
               }
             }
-            // Set a callback to run when the Google Visualization API is loaded.
-          
-            // Load the Visualization API and the corechart package.
-            google.charts.load('current', {'packages':['corechart', 'line']});
-            google.charts.setOnLoadCallback(drawChart);
-            console.log("replotting graph");
           }
-          
-          window.setInterval(createSpectrogram, 250); //recalculates spectrogram and draws graph every quarter second
+          // Set a callback to run when the Google Visualization API is loaded.
+        
+          // Load the Visualization API and the corechart package.
+          google.charts.load('current', {'packages':['corechart', 'line']});
+          google.charts.setOnLoadCallback(drawChart);
+          console.log("replotting graph");
+        }
+        
+        window.setInterval(createSpectrogram, 250); //recalculates spectrogram and draws graph every quarter second
 
-          // Callback that creates and populates a data table,
-          // instantiates the pie chart, passes in the data and
-          // draws it.
-          function drawChart() {
+        // Callback that creates and populates a data table,
+        // instantiates the pie chart, passes in the data and
+        // draws it.
+        function drawChart() {
 
-            // Create the data table.
-            var data = new google.visualization.DataTable();
-            data.addColumn('number', 'Frequency');
-            data.addColumn('number', 'Intensity');
-            data.addColumn('number', 'Max Intensity')
-            data.addRows(graphData);
+          // Create the data table.
+          var data = new google.visualization.DataTable();
+          data.addColumn('number', 'Frequency');
+          data.addColumn('number', 'Intensity');
+          data.addColumn('number', 'Max Intensity')
+          data.addRows(graphData);
 
-            // Set chart options
-            var options = {
-              chart: {
-                title:'Fourier Transform',
-              },
-              width:800,
-              height:600,
-              hAxis: {
-                title: 'Frequency (Hz)',
-                
-              },
-              vAxis: {
-                title: 'Intensity (DB)',
+          // Set chart options
+          var options = {
+            chart: {
+              title:'Fourier Transform',
+            },
+            width:800,
+            height:600,
+            hAxis: {
+              title: 'Frequency (Hz)',
+              
+            },
+            vAxis: {
+              title: 'Intensity (DB)',
+              min: -100,
+              viewWindow: {
                 min: -100,
-                viewWindow: {
-                  min: -100,
-                  max: 50
-                }
-              },
-              
-              
-            }
-                        
-
-            // Instantiate and draw our chart, passing in some options.
-            var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
-            chart.draw(data, options);
+                max: 50
+              }
+            },
+            
+            
           }
-       
-      })
-      .catch(function(err) {
-          console.log('The following getUserMedia error occured: ' + err);
-      });
+                      
+
+          // Instantiate and draw our chart, passing in some options.
+          var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+          chart.draw(data, options);
+        }
+      
+    })
+    .catch(function(err) {
+        console.log('The following getUserMedia error occured: ' + err);
+    });
   } else {
       console.log('getUserMedia not supported on your browser!');
+    }
+
+    function clearMax() {
+      for(var i = 0; i < graphData.length; i++) {
+          graphData[i][2] = -100;
+        }
     }
 </script>
 </html>
