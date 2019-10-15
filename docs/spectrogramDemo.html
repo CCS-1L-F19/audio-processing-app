@@ -16,6 +16,7 @@
   <body>
     <!--Div that will hold the chart-->
     <div id="chart_div"></div>
+    <button onclick = "clearMax()">Clear Max Frequencies</button>
   </body>
 
 <!--Load the AJAX API-->
@@ -28,10 +29,6 @@
       console.log('getUserMedia supported.');
       navigator.mediaDevices.getUserMedia ({audio: true, video: false})
       .then(function(stream) {
-
-          // Load the Visualization API and the corechart package.
-          google.charts.load('current', {'packages':['corechart']});
-       
           // Create a MediaStreamAudioSourceNode
           // Feed the HTMLMediaElement into it
           var audioCtx = new AudioContext();
@@ -44,22 +41,28 @@
           var frequencyArray = new Float32Array(analyser.frequencyBinCount);
           var graphData = new Array(frequencyArray.length);
           
+          for(var i = 0; i < graphData.length; i++) {
+            graphData[i] = [i * 22050 / frequencyArray.length, -100, -100]
+          }
 
           function createSpectrogram() {
   
             analyser.getFloatFrequencyData(frequencyArray);
 
             for(i = 0; i < frequencyArray.length; i++) {
-              if(frequencyArray[i] == -Infinity) {
-                graphData[i] = [i, -100];
-              }
-              else {
-                graphData[i] = [i, frequencyArray[i]];
+              if(frequencyArray[i] != -Infinity) {
+                graphData[i][1] = frequencyArray[i];
+                if(frequencyArray[i] > graphData[i][2]) {
+                  graphData[i][2] = frequencyArray[i];
+                }
               }
             }
             // Set a callback to run when the Google Visualization API is loaded.
-          google.charts.setOnLoadCallback(drawChart);
-          console.log("replotting graph");
+          
+            // Load the Visualization API and the corechart package.
+            google.charts.load('current', {'packages':['corechart', 'line']});
+            google.charts.setOnLoadCallback(drawChart);
+            console.log("replotting graph");
           }
           
           window.setInterval(createSpectrogram, 250); //recalculates spectrogram and draws graph every quarter second
@@ -73,13 +76,31 @@
             var data = new google.visualization.DataTable();
             data.addColumn('number', 'Frequency');
             data.addColumn('number', 'Intensity');
+            data.addColumn('number', 'Max Intensity')
             data.addRows(graphData);
 
             // Set chart options
-            var options = {'title':'Fourier Transform',
-                          'width':400,
-                          'height':300,
-                          'vAxis.minValue': -100}
+            var options = {
+              chart: {
+                title:'Fourier Transform',
+              },
+              width:800,
+              height:600,
+              hAxis: {
+                title: 'Frequency (Hz)',
+                
+              },
+              vAxis: {
+                title: 'Intensity (DB)',
+                min: -100,
+                viewWindow: {
+                  min: -100,
+                  max: 50
+                }
+              },
+              
+              
+            }
                         
 
             // Instantiate and draw our chart, passing in some options.
