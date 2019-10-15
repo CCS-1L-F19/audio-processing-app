@@ -16,7 +16,9 @@
   <body>
     <!--Div that will hold the chart-->
     <div id="chart_div"></div>
-    <button onclick = "clearMax()">Clear Max Frequencies</button>
+    <button onclick = "clearpeak()">Clear peak Frequencies</button>
+    <br>
+    <label id = "peak">peak</label>
   </body>
 
 <!--Load the AJAX API-->
@@ -25,6 +27,7 @@
 
   var myAudio = document.querySelector('audio');
   var graphData = [];
+  var peak = [0, 0];
 
   if (navigator.mediaDevices) {
     console.log('getUserMedia supported.');
@@ -42,19 +45,26 @@
         var frequencyArray = new Float32Array(analyser.frequencyBinCount);
         graphData = new Array(frequencyArray.length);
         
+
         for(var i = 0; i < graphData.length; i++) {
           graphData[i] = [i * 22050 / frequencyArray.length, -100, -100]
+          
         }
 
         function createSpectrogram() {
 
           analyser.getFloatFrequencyData(frequencyArray);
 
+          peak = [0, -100];
           for(i = 0; i < frequencyArray.length; i++) {
             if(frequencyArray[i] != -Infinity) {
               graphData[i][1] = frequencyArray[i];
               if(frequencyArray[i] > graphData[i][2]) {
                 graphData[i][2] = frequencyArray[i];
+              }
+
+              if(graphData[i][1] > peak[1]) {
+                peak = [graphData[i][0], graphData[i][1]];
               }
             }
           }
@@ -63,7 +73,6 @@
           // Load the Visualization API and the corechart package.
           google.charts.load('current', {'packages':['corechart', 'line']});
           google.charts.setOnLoadCallback(drawChart);
-          console.log("replotting graph");
         }
         
         window.setInterval(createSpectrogram, 250); //recalculates spectrogram and draws graph every quarter second
@@ -77,10 +86,9 @@
           var data = new google.visualization.DataTable();
           data.addColumn('number', 'Frequency');
           data.addColumn('number', 'Intensity');
-          data.addColumn('number', 'Max Intensity')
+          data.addColumn('number', 'peak Intensity')
           data.addRows(graphData);
 
-          // Set chart options
           var options = {
             chart: {
               title:'Fourier Transform',
@@ -92,21 +100,19 @@
               
             },
             vAxis: {
-              title: 'Intensity (DB)',
+              title: 'Intensity (dB)',
               min: -100,
               viewWindow: {
                 min: -100,
-                max: 50
+                peak: 50
               }
             },
             
-            
           }
-                      
 
-          // Instantiate and draw our chart, passing in some options.
           var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
           chart.draw(data, options);
+          document.getElementById("peak").innerHTML = peak[1] + " Decibels at " + peak[0] + " Hertz";
         }
       
     })
@@ -117,7 +123,7 @@
       console.log('getUserMedia not supported on your browser!');
     }
 
-    function clearMax() {
+    function clearpeak() {
       for(var i = 0; i < graphData.length; i++) {
           graphData[i][2] = -100;
         }
