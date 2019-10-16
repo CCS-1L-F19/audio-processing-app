@@ -18,6 +18,8 @@
     <div id="chart_div"></div>
     <button onclick = "clearpeak()">Clear peak Frequencies</button>
     <br>
+    <input id = 'smoothingconstantslider' type = 'range' min = '0' max = '100'>Smoothing Constant</input>
+    <br>
     <label id = "peak">peak</label>
   </body>
 
@@ -26,6 +28,7 @@
 <script type="text/javascript">
 
   var myAudio = document.querySelector('audio');
+  var smoothingconstantslider = document.getElementById("smoothingconstantslider")
   var graphData = [];
   var peak = [0, 0];
 
@@ -37,11 +40,14 @@
         // Feed the HTMLMediaElement into it
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
-      
         var analyser = audioCtx.createAnalyser();
-        analyser.smoothingTimeConstant = 0;
         source.connect(analyser);
       
+        analyser.smoothingTimeConstant = smoothingconstantslider.value / 100;
+        smoothingconstantslider.oninput = function() {
+          analyser.smoothingTimeConstant = smoothingconstantslider.value / 100;
+        }
+        
         var frequencyArray = new Float32Array(analyser.frequencyBinCount);
         graphData = new Array(frequencyArray.length);
         
