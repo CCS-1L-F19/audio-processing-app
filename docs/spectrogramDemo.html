@@ -31,15 +31,16 @@
   var smoothingconstantslider = document.getElementById("smoothingconstantslider")
   var graphData = [];
   var peak = [0, 0];
-
+  var audioCtx = window.webkitAudioContext;
+  
   if (navigator.mediaDevices) {
     console.log('getUserMedia supported.');
     navigator.mediaDevices.getUserMedia ({audio: true, video: false})
     .then(function(stream) {
         // Create a MediaStreamAudioSourceNode
         // Feed the HTMLMediaElement into it
-        var audioCtx = window.webkitAudioContext;
-          
+        
+        
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
         source.connect(analyser);
