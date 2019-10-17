@@ -38,7 +38,9 @@
     .then(function(stream) {
         // Create a MediaStreamAudioSourceNode
         // Feed the HTMLMediaElement into it
-        var audioCtx = new AudioContext();
+        var audioCtx = new AudioContext()
+          || window.webkitAudioContext
+          || false;
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
         source.connect(analyser);
