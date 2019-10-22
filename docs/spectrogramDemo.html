@@ -25,7 +25,7 @@
 
 <!--Load the AJAX API-->
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-<script type="text/javascript">
+<script type="text/javascript" src="AudioContextMonkeyPatch.js">
 
   var myAudio = document.querySelector('audio');
   var smoothingconstantslider = document.getElementById("smoothingconstantslider");
@@ -56,7 +56,6 @@
         }
         
         var frequencyArray = new Float32Array(analyser.frequencyBinCount); //BinCount will always be half the FFT size
-        console.log(frequencyArray.length);
         graphData = new Array(frequencyArray.length);
 
         for(var i = 0; i < graphData.length; i++) {
