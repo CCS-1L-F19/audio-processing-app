@@ -48,6 +48,7 @@
   google.charts.load('current', {'packages':['corechart', 'line']});
   var chart;
   var data;
+  var options;
 
   if (navigator.mediaDevices) {
     console.log('getUserMedia supported.');
@@ -59,53 +60,74 @@
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
+        analyser.fftSize = 2048;
         source.connect(analyser);
-      
+
         analyser.smoothingTimeConstant = smoothingconstantslider.value / 100;
         smoothingconstantslider.oninput = function() {
           analyser.smoothingTimeConstant = smoothingconstantslider.value / 100;
         }
         
         var frequencyArray = new Float32Array(analyser.frequencyBinCount); //BinCount will always be half the FFT size
-        graphData = new Array(frequencyArray.length);
-
-        for(var i = 0; i < graphData.length; i++) {
-          graphData[i] = [i * 22050 / frequencyArray.length, -100, -100]
-          
+    
+        graphData = new Array(frequencyArray.length / 4); //256
+        for(var i = 0; i < graphData.length; i+=2) {
+          graphData[i] = [i * 22050 / graphData.length, -100, -100]; //min-max downsampling method yields two decibel values per frequency
+          graphData[i + 1] = [i * 22050 / graphData.length, -100, -100];
         }
 
-        function createSpectrogram() {
+        // Set a callback to run when the Google Visualization API is loaded.
+        google.charts.setOnLoadCallback(drawChart);
+        //recalculates spectrogram and draws graph every quarter second
+        window.setInterval(updateSpectrogram, 250); 
 
+        function updateSpectrogram() {
           analyser.getFloatFrequencyData(frequencyArray);
-
           peak = [0, -100];
-          for(i = 0; i < graphData.length; i++) {
-            if(frequencyArray[i] != -Infinity) {
-              graphData[i][1] = frequencyArray[i];
-              if(frequencyArray[i] > graphData[i][2]) {
-                graphData[i][2] = frequencyArray[i];
-              }
 
-              if(graphData[i][1] > peak[1]) {
-                peak = [graphData[i][0], graphData[i][1]];
+          minMaxDownsample(); //downsamples frequencyData to fill graphData's second column
+          findPeak();
+
+          data.removeRows(2, graphData.length);
+          data.addRows(graphData);
+          chart.draw(data, options);
+          document.getElementById("peak").innerHTML = peak[1] + " Decibels at " + peak[0] + " Hertz";
+        }
+
+        function minMaxDownsample() {
+          for(i = 0; i < graphData.length; i+=2) {
+            var max = Math.max(...frequencyArray.slice(4 * i, 4 * i + 8))
+            var min = Math.min(...frequencyArray.slice(4 * i, 4 * i + 8))
+            if(max == -Infinity) {
+              max = -100;
+            }
+            if(min == -Infinity) {
+              min = -100;
+            }
+            graphData[i][1] = min;
+            graphData[i+1][1] = max;
+
+            if(graphData[i][1] > graphData[i][2]) {
+              graphData[i][2] = graphData[i][1];
+            }
+            if(graphData[i + 1][1] > graphData[i + 1][2]) {
+              graphData[i + 1][2] = graphData[i + 1][1];
+            }
+          }
+        }
+        
+        function findPeak() {
+          peak = [0, -100];
+
+          for(i = 0; i < frequencyArray.length; i++) {
+            if(frequencyArray[i] != -Infinity) {
+              if(frequencyArray[i] > peak[1]) {
+                peak = [i * 22050 / frequencyArray.length, frequencyArray[i]];
               }
             }
           }
-          data.removeRows(2, 128); //clears all frequency data
-          drawChart();
         }
 
-        
-        // Set a callback to run when the Google Visualization API is loaded.
-        google.charts.setOnLoadCallback(drawChart);
-
-        //recalculates spectrogram and draws graph every quarter second
-        window.setInterval(createSpectrogram, 250); 
-
-        // Callback that creates and populates a data table,
-        // instantiates the pie chart, passes in the data and
-        // draws it.
         function drawChart() {
           chart = new google.visualization.LineChart(document.getElementById('chart_div'));
           data = new google.visualization.DataTable();
@@ -115,12 +137,11 @@
           data.addColumn('number', 'peak Intensity')
           data.addRows(graphData);
 
-          var options = {
+           options = {
             chart: {
               title:'Fourier Transform',
             },
-            // width:800,
-            height:600,
+            height:600, //width is controlled by Bootstrap container
             hAxis: {
               title: 'Frequency (Hz)',
               
@@ -133,10 +154,8 @@
                 peak: 50
               }
             },
-            
           }
           chart.draw(data, options);
-          document.getElementById("peak").innerHTML = peak[1] + " Decibels at " + peak[0] + " Hertz";
         }
       
     })
