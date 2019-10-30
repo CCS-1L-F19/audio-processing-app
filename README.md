@@ -7,7 +7,7 @@ The most up to date version of the webapp is hosted on this repository's website
 ## Modifying the source code
 All the webapp's files are stored in the docs folder of this repo. 
 
-index.html is a simple page that contains links. The page under active development is in spectrogram.html. 
+index.html is a simple page that contains links. The page under active development is in spectrogram.html. The HTML body is currently contains only several elements and is layed out with Bootstrap (in progress). The script block is mostly contained in an asyncronous block that depends on the getUserMedia call, which requests microphone data from the device through the browser. The script then initializes a Google chart and updates it periodically with a setInterval() call to updateSpectrogram() 
 
 
 
