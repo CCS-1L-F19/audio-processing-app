@@ -7,7 +7,7 @@ The most up to date version of the webapp is hosted on this repository's website
 ## Modifying the source code
 All the webapp's files are stored in the docs folder of this repo. 
 
-index.html is a simple page that contains links. The live spectrogram page is in spectrogram.html.
+index.html is a simple page that contains links. The page under active development is in spectrogram.html. 
 
 
 
@@ -16,4 +16,4 @@ index.html is a simple page that contains links. The live spectrogram page is in
 This is an open source patch by Chris Wilson referenced in MDN documentation ([https://developer.mozilla.org/en-US/docs/Web/Guide/Audio_and_video_delivery/Web_Audio_API_cross_browser](https://developer.mozilla.org/en-US/docs/Web/Guide/Audio_and_video_delivery/Web_Audio_API_cross_browser)). It is required to offer compatibility with browsers including Safari which require the webkit prefix on Web Audio API to function. I have copied AudioContext-MonkeyPatch.js directly into my repository because the URL to include it from the web is not HTTPS, which some browsers do not like when allowing microphone access.
 
 ## [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
-This MDN API handles receiving microphone 
+This MDN API provides a stream of microphone data and includes an Analyser Node which performs a Fast Fourier Transform on the raw audio to calculate frequency data. 
