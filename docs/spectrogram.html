@@ -22,11 +22,19 @@
   <body>
     <!--Div that will hold the chart-->
     <div id="chart_div" class="container"></div>
-    <button onclick = "clearpeak()">Clear peak Frequencies</button>
-    <br>
-    <label id = "peak">peak</label>
-    <br>
-    <label id = "note">note</label>
+    <div id = "info_container" class = "container" hidden>
+      <div class = "row">
+        <div class = "col-sm-3">
+            <button onclick = "clearpeak()" class="alert alert-primary" role="alert">Clear peak Frequencies</button>
+        </div>
+        <div class = "col-sm-3">
+            <label id = "peak" class="alert alert-primary" role="alert">peak</label>
+        </div> 
+        <div class = "col-sm-3">
+            <label id = "note" class="alert alert-primary" role="alert">note</label>
+        </div>
+      </div>
+    </div>
   </body>
 
 <!--Load the AJAX API-->
@@ -38,14 +46,16 @@
 <script type="text/javascript" src = "AudioContextMonkeyPatch.js"></script>
 <script type="text/javascript" src = "scales.js"></script> 
 <script type="text/javascript">
-  console.log(scales)
-
 
   var myAudio = document.querySelector('audio');
-  var smoothingconstantslider = document.getElementById("smoothingconstantslider");
   var graphData = [];
   var peak = [0, 0];
   var note = "";
+
+  const smoothingconstant = 0;
+  const samplerate = 4;
+  const regraphrate = 4;
+  const fftsize = 2048;
 
   // Load the Visualization API and the corechart package.
   google.charts.load('current', {'packages':['corechart', 'line']});
@@ -65,9 +75,9 @@
         var analyser = audioCtx.createAnalyser();
 
 
-        analyser.fftSize = 2048;
+        analyser.fftSize = fftsize;
         source.connect(analyser);
-        analyser.smoothingTimeConstant = 0;
+        analyser.smoothingTimeConstant = smoothingconstant;
 
         
         
@@ -81,8 +91,9 @@
 
         // Set a callback to run when the Google Visualization API is loaded.
         google.charts.setOnLoadCallback(drawChart);
-        //recalculates spectrogram and draws graph every quarter second
-        window.setInterval(updateSpectrogram, 250); 
+
+        //recalculates spectrogram and draws graph periodically
+        window.setInterval(updateSpectrogram, 1000 / samplerate);
 
         function updateSpectrogram() {
           analyser.getFloatFrequencyData(frequencyArray);
@@ -127,7 +138,7 @@
           for(i = 0; i < frequencyArray.length; i++) {
             if(frequencyArray[i] != -Infinity) {
               if(frequencyArray[i] > peak[1]) {
-                peak = [i * 22050 / frequencyArray.length, frequencyArray[i]];
+                peak = [Math.round(100 * i * 22050 / frequencyArray.length) / 100, Math.round(100 * frequencyArray[i]) / 100];
               }
             }
           }
@@ -187,13 +198,16 @@
             },
           }
           chart.draw(data, options);
+          document.getElementById("info_container").hidden = false;
         }
       
     })
     .catch(function(err) {
+        alert('The following getUserMedia error occured: ' + err);
         console.log('The following getUserMedia error occured: ' + err);
     });
   } else {
+      alert('getUserMedia not supported on your browser!');
       console.log('getUserMedia not supported on your browser!');
     }
 
