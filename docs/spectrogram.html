@@ -9,29 +9,28 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-
-    <!-- <styles>
-      chart {
-        width:50px; 
-        min-height: 600px;
-      }
-    </styles> -->
-    <!-- <link rel = "stylesheet" type = "text/css" href = "static/styles.css" /> -->
   </head>
 
   <body>
     <!--Div that will hold the chart-->
     <div id="chart_div" class="container"></div>
     <div id = "info_container" class = "container" hidden>
-      <div class = "row">
-        <div class = "col-sm-3">
-            <button onclick = "clearpeak()" class="alert alert-primary" role="alert">Clear peak Frequencies</button>
+      <div class = "row justify-content-md-center">
+        <div class = "col-4">
+          <div class = "container-fluid">
+            <button onclick = "clearpeak()" class="button" role="alert">Clear peak Frequencies</button>
+          </div>
         </div>
-        <div class = "col-sm-3">
-            <label id = "peak" class="alert alert-primary" role="alert">peak</label>
+        <div class = "col-4">
+            <div class = "container-fluid">
+                <label id = "peak" class="alert alert-primary" role="alert">peak</label>
+            </div>
         </div> 
-        <div class = "col-sm-3">
-            <label id = "note" class="alert alert-primary" role="alert">note</label>
+
+        <div class = "col-4">
+            <div class = "container-fluid">
+                <label id = "note" class="alert alert-primary" role="alert">note</label>
+            </div>
         </div>
       </div>
     </div>
