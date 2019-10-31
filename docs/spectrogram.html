@@ -24,9 +24,9 @@
     <div id="chart_div" class="container"></div>
     <button onclick = "clearpeak()">Clear peak Frequencies</button>
     <br>
-    <input id = 'smoothingconstantslider' type = 'range' min = '0' max = '100'>Smoothing Constant</input>
-    <br>
     <label id = "peak">peak</label>
+    <br>
+    <label id = "note">note</label>
   </body>
 
 <!--Load the AJAX API-->
@@ -36,13 +36,16 @@
 
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script type="text/javascript" src = "AudioContextMonkeyPatch.js"></script>
+<script type="text/javascript" src = "scales.js"></script> 
 <script type="text/javascript">
+  console.log(scales)
 
 
   var myAudio = document.querySelector('audio');
   var smoothingconstantslider = document.getElementById("smoothingconstantslider");
   var graphData = [];
   var peak = [0, 0];
+  var note = "";
 
   // Load the Visualization API and the corechart package.
   google.charts.load('current', {'packages':['corechart', 'line']});
@@ -60,13 +63,13 @@
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
+
+
         analyser.fftSize = 2048;
         source.connect(analyser);
+        analyser.smoothingTimeConstant = 0;
 
-        analyser.smoothingTimeConstant = smoothingconstantslider.value / 100;
-        smoothingconstantslider.oninput = function() {
-          analyser.smoothingTimeConstant = smoothingconstantslider.value / 100;
-        }
+        
         
         var frequencyArray = new Float32Array(analyser.frequencyBinCount); //BinCount will always be half the FFT size
     
@@ -87,11 +90,13 @@
 
           minMaxDownsample(); //downsamples frequencyData to fill graphData's second column
           findPeak();
+          findNote();
 
           data.removeRows(2, graphData.length);
           data.addRows(graphData);
           chart.draw(data, options);
           document.getElementById("peak").innerHTML = peak[1] + " Decibels at " + peak[0] + " Hertz";
+          document.getElementById("note").innerHTML = note;
         }
 
         function minMaxDownsample() {
@@ -126,6 +131,32 @@
               }
             }
           }
+        }
+
+        function findNote() {
+            var index = 0;
+            for(index; index < scales["frequencies"].length; index++) {
+              if(peak[0] < scales["frequencies"][index]) {
+                break;
+              }
+            }
+
+            if(index == 0) {
+              note = "Less than A0";
+            }
+
+            else if(index == scales["frequencies"].length - 1) {
+              note = "Greater than G#8";
+            }
+
+            else{
+              if(Math.abs(scales["frequencies"][index] - peak[0]) > Math.abs(scales["frequencies"][index-1] - peak[0])) {
+                note = scales["notes"][index -1];
+              }
+              else{
+                note = scales["notes"][index]; 
+              }
+            }
         }
 
         function drawChart() {
