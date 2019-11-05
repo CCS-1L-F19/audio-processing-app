@@ -2,7 +2,7 @@
 An audio processing app that processes live microphone data and displays spectrograms, audio metrics, etc
 
 ## Accessing the webapp
-The most up to date version of the webapp is hosted on this repository's website, [https://ccs-1l-f19.github.io/audio-processing-app/](https://ccs-1l-f19.github.io/audio-processing-app/). For now the landing page contains links to several demo pages. The current main project is the live spectrogram page. 
+The most up to date version of the webapp is hosted on a Github Pages site, [https://ccs-1l-f19.github.io/audio-processing-app/](https://ccs-1l-f19.github.io/audio-processing-app/). For now the landing page contains links to several demo pages. The current main project is the live spectrogram page. 
 
 ## Modifying the source code
 All the webapp's files are stored in the docs folder of this repo. 
