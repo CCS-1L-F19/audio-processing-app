@@ -72,13 +72,10 @@
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
 
-
         analyser.fftSize = fftsize;
         source.connect(analyser);
         analyser.smoothingTimeConstant = smoothingconstant;
 
-        
-        
         var frequencyArray = new Float32Array(analyser.frequencyBinCount); //BinCount will always be half the FFT size
     
         graphData = new Array(frequencyArray.length / 4); //256
