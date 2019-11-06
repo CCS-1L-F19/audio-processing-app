@@ -51,10 +51,9 @@
   var peak = [0, 0];
   var note = "";
 
-  const smoothingconstant = 0;
-  const samplerate = 4;
-  const regraphrate = 4;
-  const fftsize = 2048;
+  const smoothingconstant = 0.5; //default is 0.8
+  const samplerate = 20;
+  const fftsize = 2048; // 2048 samples / 44.1 kHz = 46.4 ms 
 
   // Load the Visualization API and the corechart package.
   google.charts.load('current', {'packages':['corechart', 'line']});
@@ -98,18 +97,21 @@
           analyser.getFloatFrequencyData(frequencyArray);
           peak = [0, -100];
 
-          minMaxDownsample(); //downsamples frequencyData to fill graphData's second column
+          minMaxDownsample(); 
           findPeak();
           findNote();
 
-          data.removeRows(2, graphData.length);
+          data.removeRows(0, graphData.length);
           data.addRows(graphData);
+
           chart.draw(data, options);
+          chart.setSelection([{row: peak[0] * 256 / 22050, column: 1}]);
+        
           document.getElementById("peak").innerHTML = peak[1] + " Decibels at " + peak[0] + " Hertz";
           document.getElementById("note").innerHTML = note;
         }
 
-        function minMaxDownsample() {
+        function minMaxDownsample() { //downsamples frequencyData to fill graphData's second column
           for(i = 0; i < graphData.length; i+=2) {
             var max = Math.max(...frequencyArray.slice(4 * i, 4 * i + 8))
             var min = Math.min(...frequencyArray.slice(4 * i, 4 * i + 8))
@@ -195,6 +197,10 @@
                 peak: 50
               }
             },
+            crosshair: {
+              color: '#000',
+              trigger: 'selection'
+            }
           }
           chart.draw(data, options);
           document.getElementById("info_container").hidden = false;
