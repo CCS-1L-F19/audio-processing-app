@@ -14,7 +14,7 @@
   <body>
     <!--Div that will hold the chart-->
     <div id="chart_div" class="container"></div>
-    <div id = "info_container" class = "container" hidden>
+    <!-- <div id = "info_container" class = "container" hidden>
       <div class = "row justify-content-md-center">
         <div class = "col-4">
           <div class = "container-fluid">
@@ -33,7 +33,7 @@
             </div>
         </div>
       </div>
-    </div>
+    </div> -->
   </body>
 
 <!--Load the AJAX API-->
@@ -47,22 +47,42 @@
 <script type="text/javascript">
 
   var myAudio = document.querySelector('audio');
-  var graphData = [];
   var peak = [0, 0];
   var note = "";
 
-  const smoothingconstant = 0.5; //default is 0.8
   const regraphrate = 20;
   const samplerate = 44100;
   const fftsize = 2048;
   const graphresolution = 256;
   const shiftstep = fftsize / (2 * graphresolution);
 
+  var waveformArray = new Float32Array(fftsize);
+  var autocorrelationArray = new Array(graphresolution);
+  for(var i = 0; i < autocorrelationArray.length; i++) {
+    autocorrelationArray[i] = [0, 0];
+  }
+
   // Load the Visualization API and the corechart package.
   google.charts.load('current', {'packages':['corechart', 'line']});
   var chart;
   var data;
-  var options;
+  const options = {
+    chart: {
+        title:'Fourier Transform',
+    },
+    height: 600, //width is controlled by Bootstrap container
+    hAxis: {
+        title: 'Time (s)',
+    },
+    vAxis: {
+        title: 'Autocorrelation',
+        viewWindow: {
+        min: -10,
+        max: 10
+        }
+    },
+  };
+  
 
   if (navigator.mediaDevices) {
     console.log('getUserMedia supported.');
@@ -77,10 +97,7 @@
 
         analyser.fftSize = fftsize;
         source.connect(analyser);
-        analyser.smoothingTimeConstant = smoothingconstant;
-
-        var waveformArray = new Float32Array(fftSize);
-        var autocorrelationArray = new Array(graphresolution).fill(Float32Array(2));
+        
 
         // Set a callback to run when the Google Visualization API is loaded.
         google.charts.setOnLoadCallback(drawChart);
@@ -96,61 +113,23 @@
               for(var sample = 0; sample < waveformArray.length / 2; sample++) {
                 correlationsum += waveformArray[sample] * waveformArray[sample + shift * shiftstep];
               }
-            autocorrelationArray[shift] = [shift * shiftsize / samplerate, correlationsum];
+            autocorrelationArray[shift] = [shift * shiftstep / samplerate, correlationsum];
           }
 
         //   minMaxDownsample(); 
         //   findPeak();
         //   findNote();
 
-          data.removeRows(0, waveformArray.length);
-          data.addRows(waveformArray);
+          data.removeRows(0, autocorrelationArray.length);
+          data.addRows(autocorrelationArray);
 
           chart.draw(data, options);
-          chart.setSelection([{row: peak[0] * 256 / 22050, column: 1}]);
+        //   chart.setSelection([{row: peak[0] * 256 / 22050, column: 1}]);
         
-          document.getElementById("peak").innerHTML = peak[1] + " Decibels at " + peak[0] + " Hertz";
-          document.getElementById("note").innerHTML = note;
+        //   document.getElementById("peak").innerHTML = peak[1] + " Decibels at " + peak[0] + " Hertz";
+        //   document.getElementById("note").innerHTML = note;
         }
         
-        function findPeak() {
-          peak = [0, -100];
-
-          for(i = 0; i < frequencyArray.length; i++) {
-            if(frequencyArray[i] != -Infinity) {
-              if(frequencyArray[i] > peak[1]) {
-                peak = [Math.round(100 * i * 22050 / frequencyArray.length) / 100, Math.round(100 * frequencyArray[i]) / 100];
-              }
-            }
-          }
-        }
-
-        function findNote() {
-            var index = 0;
-            for(index; index < scales["frequencies"].length; index++) {
-              if(peak[0] < scales["frequencies"][index]) {
-                break;
-              }
-            }
-
-            if(index == 0) {
-              note = "Less than A0";
-            }
-
-            else if(index == scales["frequencies"].length - 1) {
-              note = "Greater than G#8";
-            }
-
-            else{
-              if(Math.abs(scales["frequencies"][index] - peak[0]) > Math.abs(scales["frequencies"][index-1] - peak[0])) {
-                note = scales["notes"][index -1];
-              }
-              else{
-                note = scales["notes"][index]; 
-              }
-            }
-        }
-
         function drawChart() {
           chart = new google.visualization.LineChart(document.getElementById('chart_div'));
           data = new google.visualization.DataTable();
@@ -159,30 +138,8 @@
           data.addColumn('number', 'Intensity');
           data.addRows(autocorrelationArray);
 
-           options = {
-            chart: {
-              title:'Fourier Transform',
-            },
-            height:600, //width is controlled by Bootstrap container
-            hAxis: {
-              title: 'Frequency (Hz)',
-              
-            },
-            vAxis: {
-              title: 'Intensity (dB)',
-              min: -100,
-              viewWindow: {
-                min: -100,
-                peak: 50
-              }
-            },
-            crosshair: {
-              color: '#000',
-              trigger: 'selection'
-            }
-          }
           chart.draw(data, options);
-          document.getElementById("info_container").hidden = false;
+        //   document.getElementById("info_container").hidden = false;
         }
       
     })
