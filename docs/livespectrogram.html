@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 
-    <title>Spectrogram Demo</title>
+    <title>Live Spectrogram</title>
 
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -59,7 +59,28 @@
   google.charts.load('current', {'packages':['corechart', 'line']});
   var chart;
   var data;
-  var options;
+  const options = {
+    chart: {
+      title:'Fourier Transform',
+    },
+    height:600, //width is controlled by Bootstrap container
+    hAxis: {
+      title: 'Frequency (Hz)',
+      
+    },
+    vAxis: {
+      title: 'Intensity (dB)',
+      min: -100,
+      viewWindow: {
+        min: -100,
+        peak: 50
+      }
+    },
+    crosshair: {
+      color: '#000',
+      trigger: 'selection'
+    }
+  };
 
   if (navigator.mediaDevices) {
     console.log('getUserMedia supported.');
@@ -94,7 +115,7 @@
           analyser.getFloatFrequencyData(frequencyArray);
           peak = [0, -100];
 
-          minMaxDownsample(); 
+          maxDownsample(); 
           findPeak();
           findNote();
 
@@ -108,24 +129,17 @@
           document.getElementById("note").innerHTML = note;
         }
 
-        function minMaxDownsample() { //downsamples frequencyData to fill graphData's second column
-          for(i = 0; i < graphData.length; i+=2) {
-            var max = Math.max(...frequencyArray.slice(4 * i, 4 * i + 8))
-            var min = Math.min(...frequencyArray.slice(4 * i, 4 * i + 8))
+        function maxDownsample() { //downsamples frequencyData to fill graphData's second column
+          for(i = 0; i < graphData.length; i++) {
+            var max = Math.max(...frequencyArray.slice(4 * i, 4 * i + 4))
             if(max == -Infinity) {
               max = -100;
             }
-            if(min == -Infinity) {
-              min = -100;
-            }
-            graphData[i][1] = min;
-            graphData[i+1][1] = max;
+          
+            graphData[i][1] = max;
 
             if(graphData[i][1] > graphData[i][2]) {
               graphData[i][2] = graphData[i][1];
-            }
-            if(graphData[i + 1][1] > graphData[i + 1][2]) {
-              graphData[i + 1][2] = graphData[i + 1][1];
             }
           }
         }
@@ -177,28 +191,6 @@
           data.addColumn('number', 'peak Intensity')
           data.addRows(graphData);
 
-           options = {
-            chart: {
-              title:'Fourier Transform',
-            },
-            height:600, //width is controlled by Bootstrap container
-            hAxis: {
-              title: 'Frequency (Hz)',
-              
-            },
-            vAxis: {
-              title: 'Intensity (dB)',
-              min: -100,
-              viewWindow: {
-                min: -100,
-                peak: 50
-              }
-            },
-            crosshair: {
-              color: '#000',
-              trigger: 'selection'
-            }
-          }
           chart.draw(data, options);
           document.getElementById("info_container").hidden = false;
         }

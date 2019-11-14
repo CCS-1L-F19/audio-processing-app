@@ -14,26 +14,6 @@
   <body>
     <!--Div that will hold the chart-->
     <div id="chart_div" class="container"></div>
-    <!-- <div id = "info_container" class = "container" hidden>
-      <div class = "row justify-content-md-center">
-        <div class = "col-4">
-          <div class = "container-fluid">
-            <button onclick = "clearpeak()" class="button" role="alert">Clear peak Frequencies</button>
-          </div>
-        </div>
-        <div class = "col-4">
-            <div class = "container-fluid">
-                <label id = "peak" class="alert alert-primary" role="alert">peak</label>
-            </div>
-        </div> 
-
-        <div class = "col-4">
-            <div class = "container-fluid">
-                <label id = "note" class="alert alert-primary" role="alert">note</label>
-            </div>
-        </div>
-      </div>
-    </div> -->
   </body>
 
 <!--Load the AJAX API-->
@@ -94,6 +74,7 @@
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
+        analyser.smoothingTimeConstant = 0;
 
         analyser.fftSize = fftsize;
         source.connect(analyser);
@@ -115,10 +96,6 @@
               }
             autocorrelationArray[shift] = [shift * shiftstep / samplerate, correlationsum];
           }
-
-        //   minMaxDownsample(); 
-        //   findPeak();
-        //   findNote();
 
           data.removeRows(0, autocorrelationArray.length);
           data.addRows(autocorrelationArray);
@@ -150,12 +127,6 @@
   } else {
       alert('getUserMedia not supported on your browser!');
       console.log('getUserMedia not supported on your browser!');
-    }
-
-    function clearpeak() {
-      for(var i = 0; i < graphData.length; i++) {
-          graphData[i][2] = -100;
-        }
     }
 </script>
 </html>
