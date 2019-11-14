@@ -96,27 +96,44 @@
         window.setInterval(updateGraph, 1000 / regraphrate);
 
         function updateGraph() {
+            var autocorrelationArray;
             if(iOSSafari) {
                 analyser.getByteTimeDomainData(waveformArray);
+                autocorrelationArray = getAutocorrelationByte(waveformArray);
             } else {
                 analyser.getFloatTimeDomainData(waveformArray);
+                autocorrelationArray = getAutocorrelationFloat(waveformArray);
             }
         
-            const autocorrelationArray = getAutocorrelation(waveformArray);
+            
             data.removeRows(0, autocorrelationArray.length);
             data.addRows(autocorrelationArray);
 
             chart.draw(data, options);
         }
 
-        function getAutocorrelation(waveformArray) {
+        function getAutocorrelationFloat(waveformArray) {
           console.log(waveformArray);
           var autocorrelationArray = new Array;
           var correlationsum;
           for(var shift = 0; shift < graphresolution; shift++) {
             correlationsum = 0;
             for(var sample = 0; sample < waveformArray.length / 2; sample++) {
-              correlationsum += waveformArray[sample] / 256 * waveformArray[sample + shift * shiftstep] / 256;
+                correlationsum += waveformArray[sample] * waveformArray[sample + shift * shiftstep];
+            }
+            autocorrelationArray[shift] = [shift * shiftstep / samplerate, correlationsum];
+          }
+          return autocorrelationArray;
+        }
+
+        function getAutocorrelationByte(waveformArray) {
+          console.log(waveformArray);
+          var autocorrelationArray = new Array;
+          var correlationsum;
+          for(var shift = 0; shift < graphresolution; shift++) {
+            correlationsum = 0;
+            for(var sample = 0; sample < waveformArray.length / 2; sample++) {
+                correlationsum += (waveformArray[sample] - 128) * (waveformArray[sample + shift * shiftstep] - 128) / 256;
             }
             autocorrelationArray[shift] = [shift * shiftstep / samplerate, correlationsum];
           }
@@ -133,7 +150,6 @@
 
           chart.draw(data, options);
         }
-      
     })
     .catch(function(err) {
         alert('The following getUserMedia error occured: ' + err);
