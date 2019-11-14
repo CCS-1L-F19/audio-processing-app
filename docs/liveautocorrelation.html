@@ -65,10 +65,10 @@
     },
     vAxis: {
         title: 'Autocorrelation',
-        viewWindow: {
-        min: -10,
-        max: 10
-        }
+        // viewWindow: {
+        // min: -10,
+        // max: 10
+        // }
     },
   };
   
@@ -110,6 +110,7 @@
         }
 
         function getAutocorrelation(waveformArray) {
+          console.log(waveformArray);
           var autocorrelationArray = new Array;
           var correlationsum;
           for(var shift = 0; shift < graphresolution; shift++) {
