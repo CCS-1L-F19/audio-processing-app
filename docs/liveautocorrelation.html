@@ -115,11 +115,10 @@
           for(var shift = 0; shift < graphresolution; shift++) {
             correlationsum = 0;
             for(var sample = 0; sample < waveformArray.length / 2; sample++) {
-              correlationsum += waveformArray[sample] * waveformArray[sample + shift * shiftstep];
+              correlationsum += waveformArray[sample] / 256 * waveformArray[sample + shift * shiftstep] / 256;
             }
             autocorrelationArray[shift] = [shift * shiftstep / samplerate, correlationsum];
           }
-          console.log(autocorrelationArray);
           return autocorrelationArray;
         }
         
