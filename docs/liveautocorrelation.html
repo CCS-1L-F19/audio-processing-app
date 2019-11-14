@@ -97,7 +97,7 @@
 
         function updateGraph() {
             if(iOSSafari) {
-                getByteTimeDomainData(waveformArray);
+                analyser.getByteTimeDomainData(waveformArray);
             } else {
                 analyser.getFloatTimeDomainData(waveformArray);
             }
