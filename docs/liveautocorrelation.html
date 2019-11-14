@@ -3,14 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-
     <title>Live Autocorrelation</title>
-
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
   </head>
-
   <body>
     <!--Div that will hold the chart-->
     <div id="chart_div" class="container"></div>
@@ -27,8 +23,6 @@
 <script type="text/javascript">
 
   var myAudio = document.querySelector('audio');
-  var peak = [0, 0];
-  var note = "";
 
   const regraphrate = 20;
   const samplerate = 44100;
@@ -36,7 +30,22 @@
   const graphresolution = 256;
   const shiftstep = fftsize / (2 * graphresolution);
 
-  var waveformArray = new Float32Array(fftsize);
+  const iOSSafari = isiOSSafari();
+
+  function isiOSSafari() {
+    const ua = window.navigator.userAgent;
+    const iOS = !!ua.match(/iP(ad|hone)/i);
+    const webkit = !!ua.match(/WebKit/i);
+    return iOSSafari = iOS && webkit && !ua.match(/CriOS/i);
+  }
+
+  var waveformArray;
+  if(iOSSafari) {
+    waveformArray = new Uint8Array(fftsize);
+  } else {
+     waveformArray = new Float32Array(fftsize);
+  }
+  
   var autocorrelationArray = new Array(graphresolution);
   for(var i = 0; i < autocorrelationArray.length; i++) {
     autocorrelationArray[i] = [0, 0];
@@ -87,13 +96,17 @@
         window.setInterval(updateGraph, 1000 / regraphrate);
 
         function updateGraph() {
-          analyser.getFloatTimeDomainData(waveformArray);
-          
-          const autocorrelationArray = getAutocorrelation(waveformArray);
-          data.removeRows(0, autocorrelationArray.length);
-          data.addRows(autocorrelationArray);
+            if(iOSSafari) {
+                getByteTimeDomainData(waveformArray);
+            } else {
+                analyser.getFloatTimeDomainData(waveformArray);
+            }
+        
+            const autocorrelationArray = getAutocorrelation(waveformArray);
+            data.removeRows(0, autocorrelationArray.length);
+            data.addRows(autocorrelationArray);
 
-          chart.draw(data, options);
+            chart.draw(data, options);
         }
 
         function getAutocorrelation(waveformArray) {
