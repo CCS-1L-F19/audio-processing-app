@@ -36,7 +36,7 @@
     const ua = window.navigator.userAgent;
     const iOS = !!ua.match(/iP(ad|hone)/i);
     const webkit = !!ua.match(/WebKit/i);
-    return iOSSafari = iOS && webkit && !ua.match(/CriOS/i);
+    return iOS && webkit && !ua.match(/CriOS/i);
   }
 
   var waveformArray;
