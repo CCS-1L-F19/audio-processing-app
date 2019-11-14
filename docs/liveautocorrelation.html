@@ -81,42 +81,43 @@
         
 
         // Set a callback to run when the Google Visualization API is loaded.
-        google.charts.setOnLoadCallback(drawChart);
+        google.charts.setOnLoadCallback(createChart(autocorrelationArray));
 
         //recalculates spectrogram and draws graph periodically
         window.setInterval(updateGraph, 1000 / regraphrate);
 
         function updateGraph() {
           analyser.getFloatTimeDomainData(waveformArray);
-          var correlationsum;
-          for(var shift = 0; shift < graphresolution; shift++) {
-            correlationsum = 0;
-              for(var sample = 0; sample < waveformArray.length / 2; sample++) {
-                correlationsum += waveformArray[sample] * waveformArray[sample + shift * shiftstep];
-              }
-            autocorrelationArray[shift] = [shift * shiftstep / samplerate, correlationsum];
-          }
-
+          
+          const autocorrelationArray = getAutocorrelation(waveformArray);
           data.removeRows(0, autocorrelationArray.length);
           data.addRows(autocorrelationArray);
 
           chart.draw(data, options);
-        //   chart.setSelection([{row: peak[0] * 256 / 22050, column: 1}]);
-        
-        //   document.getElementById("peak").innerHTML = peak[1] + " Decibels at " + peak[0] + " Hertz";
-        //   document.getElementById("note").innerHTML = note;
+        }
+
+        function getAutocorrelation(waveformArray) {
+          var autocorrelationArray = new Array;
+          var correlationsum;
+          for(var shift = 0; shift < graphresolution; shift++) {
+            correlationsum = 0;
+            for(var sample = 0; sample < waveformArray.length / 2; sample++) {
+              correlationsum += waveformArray[sample] * waveformArray[sample + shift * shiftstep];
+            }
+            autocorrelationArray[shift] = [shift * shiftstep / samplerate, correlationsum];
+          }
+          return autocorrelationArray;
         }
         
-        function drawChart() {
+        function createChart(rows) {
           chart = new google.visualization.LineChart(document.getElementById('chart_div'));
           data = new google.visualization.DataTable();
           // Create the data table.
           data.addColumn('number', 'Time (ms)');
           data.addColumn('number', 'Intensity');
-          data.addRows(autocorrelationArray);
+          data.addRows(rows);
 
           chart.draw(data, options);
-        //   document.getElementById("info_container").hidden = false;
         }
       
     })

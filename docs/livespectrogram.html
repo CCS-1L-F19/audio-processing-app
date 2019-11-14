@@ -106,7 +106,7 @@
         }
 
         // Set a callback to run when the Google Visualization API is loaded.
-        google.charts.setOnLoadCallback(drawChart);
+        google.charts.setOnLoadCallback(createChart);
 
         //recalculates spectrogram and draws graph periodically
         window.setInterval(updateSpectrogram, 1000 / samplerate);
@@ -115,9 +115,9 @@
           analyser.getFloatFrequencyData(frequencyArray);
           peak = [0, -100];
 
-          maxDownsample(); 
-          findPeak();
-          findNote();
+          maxDownsample(frequencyArray, graphData); 
+          findPeak(frequencyArray);
+          findNote(peak);
 
           data.removeRows(0, graphData.length);
           data.addRows(graphData);
@@ -129,9 +129,9 @@
           document.getElementById("note").innerHTML = note;
         }
 
-        function maxDownsample() { //downsamples frequencyData to fill graphData's second column
+        function maxDownsample(freqArray, graphData) { //downsamples frequencyData to fill graphData's second column
           for(i = 0; i < graphData.length; i++) {
-            var max = Math.max(...frequencyArray.slice(4 * i, 4 * i + 4))
+            var max = Math.max(...freqArray.slice(4 * i, 4 * i + 4))
             if(max == -Infinity) {
               max = -100;
             }
@@ -144,19 +144,19 @@
           }
         }
         
-        function findPeak() {
+        function findPeak(freqArray) {
           peak = [0, -100];
 
-          for(i = 0; i < frequencyArray.length; i++) {
-            if(frequencyArray[i] != -Infinity) {
-              if(frequencyArray[i] > peak[1]) {
-                peak = [Math.round(100 * i * 22050 / frequencyArray.length) / 100, Math.round(100 * frequencyArray[i]) / 100];
+          for(i = 0; i < freqArray.length; i++) {
+            if(freqArray[i] != -Infinity) {
+              if(freqArray[i] > peak[1]) {
+                peak = [Math.round(100 * i * 22050 / freqArray.length) / 100, Math.round(100 * freqArray[i]) / 100];
               }
             }
           }
         }
 
-        function findNote() {
+        function findNote(peak) {
             var index = 0;
             for(index; index < scales["frequencies"].length; index++) {
               if(peak[0] < scales["frequencies"][index]) {
@@ -182,7 +182,7 @@
             }
         }
 
-        function drawChart() {
+        function createChart() {
           chart = new google.visualization.LineChart(document.getElementById('chart_div'));
           data = new google.visualization.DataTable();
           // Create the data table.
