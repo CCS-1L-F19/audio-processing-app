@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>Live Autocorrelation</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  </head>
+  <body>
+    
+    
+    
+  </body>
+
+<!--Load the AJAX API-->
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+<script type="text/javascript" src = "AudioContextMonkeyPatch.js"></script>
+<!-- <script type="text/javascript" src = "scales.js"></script>  -->
+<script type="text/javascript">
+
+  var myAudio = document.querySelector('audio');
+
+  const iOSSafari = isiOSSafari();
+
+  function isiOSSafari() {
+    const ua = window.navigator.userAgent;
+    const iOS = !!ua.match(/iP(ad|hone)/i);
+    const webkit = !!ua.match(/WebKit/i);
+    return iOS && webkit && !ua.match(/CriOS/i);
+  }
+
+  if (navigator.mediaDevices) {
+    console.log('getUserMedia supported.');
+    navigator.mediaDevices.getUserMedia ({audio: true, video: false})
+    .then(function(stream) {
+        // Create a MediaStreamAudioSourceNode
+        // Feed the HTMLMediaElement into it
+        const sampleRate = 44100;
+        const bufferLength = 10;
+        const fftsize = 32768;
+        const channels = 1;
+        var audioCtx = new AudioContext();
+        var source = audioCtx.createMediaStreamSource(stream);
+        var analyser = audioCtx.createAnalyser();
+        analyser.fftSize = fftsize;
+        source.connect(analyser);
+        
+        var arrayBuffer = AudioCtx.createBuffer(channels, sampleRate * bufferLength, sampleRate);
+        var filledSamples = 0;
+
+
+        window.setInterval(calcTempo(arrayBuffer),fftsize / samplerate);
+        
+        function calcTempo(arrayBuffer) {
+            updateBuffer(arrayBuffer);
+            var threshold = 0.8;
+            var peaks = getPeaksAtThreshold(arrayBuffer, threshold);
+
+
+        }
+
+        function updateBuffer(arrayBuffer) {
+            var newSampleArray = new Float32Array(fftsize);
+            analyser.getFloatFrequencyData(newSampleArray);
+            if(filledSamples == arrayBuffer.length) { 
+                arrayBuffer.copyToChannel(arrayBuffer.getChannelData(1).slice(fftsize).concat(newSampleArray), channels);
+            }
+            else {
+                arrayBuffer.copyToChannel(newSample, channels, filledSamples);
+                filledSamples += fftsize;
+            }
+        }
+        
+        function getPeaksAtThreshold(data, threshold) {
+        var peaksArray = [];
+        var length = data.length;
+            for(var i = 0; i < length; i++) {
+                if (data[i] > threshold) {
+                peaksArray.push(i);
+                    // Skip forward ~ 1/4s to get past this peak.
+                    i += 10000;
+                }
+                
+            }
+            return peaksArray;
+        }
+        
+        function intervalsBetweenPeaks(peaks) {
+            const roundingThreshold = 441 // 1/100 sec
+            var intervals = [];
+            for(var i = 0; i < peaks.length - 1; i++) {
+                intervals.push(peaks[1 + 1] - peaks[i]);
+            }
+            intervals.sort(function(a, b){return a - b});
+            var intervalCounts = [{interval: intervals[0], count: 1}];
+            var currInterval = intervalCounts[0];
+            for(var i = 1; i < intervals.length; i++) {
+                if(Math.abs(intervals[i] - currInterval.interval) < roundingThreshold) {
+                    currInterval.count++;
+                }
+                else {
+                    currInterval = {interval: intervals[1], count: 1}
+                    intervalCounts.push(currInterval);
+                }
+            }
+        }
+    })
+    .catch(function(err) {
+        alert('The following getUserMedia error occured: ' + err);
+        console.log('The following getUserMedia error occured: ' + err);
+    });
+  } else {
+      alert('getUserMedia not supported on your browser!');
+      console.log('getUserMedia not supported on your browser!');
+    }
+</script>
+</html>
