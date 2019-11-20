@@ -8,12 +8,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   </head>
   <body>
-    
+    <div id = "tempo_container" class = "container" hidden>
+        <div class = "row justify-content-md-center">
+          
+          <div class = "col-4">
+              <div class = "container-fluid">
+                  <label id = "bpm" class="alert alert-primary" role="alert"></label>
+              </div>
+          </div>
+        </div>
+      </div>
     
     
   </body>
 
-<!--Load the AJAX API-->
 <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
@@ -37,54 +45,55 @@
     console.log('getUserMedia supported.');
     navigator.mediaDevices.getUserMedia ({audio: true, video: false})
     .then(function(stream) {
-        // Create a MediaStreamAudioSourceNode
-        // Feed the HTMLMediaElement into it
+        
         const sampleRate = 44100;
-        const bufferLength = 10;
+        // const bufferLength = 1;
         const fftsize = 32768;
         const channels = 1;
+
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
         analyser.fftSize = fftsize;
         source.connect(analyser);
         
-        var arrayBuffer = AudioCtx.createBuffer(channels, sampleRate * bufferLength, sampleRate);
+        var arrayBuffer = audioCtx.createBuffer(channels, fftsize * 2, sampleRate);
         var filledSamples = 0;
 
 
-        window.setInterval(calcTempo(arrayBuffer),fftsize / samplerate);
+        window.setInterval(calcTempo, 1000 * fftsize / sampleRate);
         
-        function calcTempo(arrayBuffer) {
+        function calcTempo() {
             updateBuffer(arrayBuffer);
             var threshold = 0.8;
-            var peaks = getPeaksAtThreshold(arrayBuffer, threshold);
-
-
+            var peaks = getPeaksAtThreshold(arrayBuffer.getChannelData(0), threshold);
+            console.log(arrayBuffer.getChannelData(0));
+            // console.log(peaks);
+            // console.log(intervalsBetweenPeaks(peaks));
         }
 
         function updateBuffer(arrayBuffer) {
-            var newSampleArray = new Float32Array(fftsize);
-            analyser.getFloatFrequencyData(newSampleArray);
+            var newSamples = new Float32Array(fftsize);
+            analyser.getFloatTimeDomainData(newSamples);
+
             if(filledSamples == arrayBuffer.length) { 
-                arrayBuffer.copyToChannel(arrayBuffer.getChannelData(1).slice(fftsize).concat(newSampleArray), channels);
+                const oldSamples = arrayBuffer.getChannelData(0).slice(fftsize);
+                arrayBuffer.copyToChannel(oldSamples.concat(newSamples), 0);
             }
             else {
-                arrayBuffer.copyToChannel(newSample, channels, filledSamples);
+                arrayBuffer.copyToChannel(newSamples, 0, filledSamples);
                 filledSamples += fftsize;
             }
         }
         
         function getPeaksAtThreshold(data, threshold) {
         var peaksArray = [];
-        var length = data.length;
-            for(var i = 0; i < length; i++) {
+            for(var i = 0; i < filledSamples; i++) {
                 if (data[i] > threshold) {
                 peaksArray.push(i);
                     // Skip forward ~ 1/4s to get past this peak.
                     i += 10000;
                 }
-                
             }
             return peaksArray;
         }
@@ -95,6 +104,7 @@
             for(var i = 0; i < peaks.length - 1; i++) {
                 intervals.push(peaks[1 + 1] - peaks[i]);
             }
+
             intervals.sort(function(a, b){return a - b});
             var intervalCounts = [{interval: intervals[0], count: 1}];
             var currInterval = intervalCounts[0];
@@ -107,6 +117,9 @@
                     intervalCounts.push(currInterval);
                 }
             }
+
+            intervals.forEach(function(interval, index) {intervals[index] = interval / 60}); //convert to seconds
+            return intervals;
         }
     })
     .catch(function(err) {
