@@ -3,23 +3,23 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <title>Live Autocorrelation</title>
+    <title>Live Beat Detection</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <style>
+    body {
+            background-color: rgb(30, 30, 30)
+        }
+    </style>
   </head>
+
   <body>
-    <div id = "tempo_container" class = "container" hidden>
-        <div class = "row justify-content-md-center">
-          
-          <div class = "col-4">
-              <div class = "container-fluid">
-                  <label id = "bpm" class="alert alert-primary" role="alert"></label>
-              </div>
-          </div>
-        </div>
-      </div>
-    
-    
+    <div id = "tempo_container" class = "container-fluid text-light text-center">
+        <h1 class = "center">Live Beat Detection</h1>
+        <br>
+        <canvas id = "beatCanvas" class="p-3 mb-2 bg-dark rounded"></canvas>
+    </div>
   </body>
 
 <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
@@ -45,81 +45,95 @@
     console.log('getUserMedia supported.');
     navigator.mediaDevices.getUserMedia ({audio: true, video: false})
     .then(function(stream) {
-        
+
         const sampleRate = 44100;
-        // const bufferLength = 1;
-        const fftsize = 32768;
+        const fftSize = 2048;
         const channels = 1;
+        const threshold = 0.01;
+        const minPeakGap = 0.25;
+        var samplesSinceLastBeat = sampleRate * minPeakGap;
+        const bufferLength = 1000 * fftSize;
 
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
-        analyser.fftSize = fftsize;
-        source.connect(analyser);
-        
-        var arrayBuffer = audioCtx.createBuffer(channels, fftsize * 2, sampleRate);
-        var filledSamples = 0;
+        analyser.fftSize = fftSize;
+        var filter = audioCtx.createBiquadFilter();
+        filter.type = "highpass";
+    
+        source.connect(filter);
+        filter.connect(analyser);
 
+        var peaks = [];
 
-        window.setInterval(calcTempo, 1000 * fftsize / sampleRate);
+        // canvas init
+        var canvas = document.getElementById("beatCanvas");
+        const dpr = window.devicePixelRatio || 1;
+        const padding = 20;
+        // canvas.width = canvas.offsetWidth * dpr;
+        // canvas.height = (canvas.offsetHeight + padding * 2) * dpr;
+
+        canvas.style.width ='100%';
+        canvas.style.height='100%';
+        // ...then set the internal size to match
+        canvas.width  = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
+        var ctx = canvas.getContext("2d");
+        ctx.scale(dpr, dpr);
+        ctx.strokeStyle = "#fff";
+
+        window.setInterval(tempo, 1000 * fftSize / sampleRate);
         
-        function calcTempo() {
-            updateBuffer(arrayBuffer);
-            var threshold = 0.8;
-            var peaks = getPeaksAtThreshold(arrayBuffer.getChannelData(0), threshold);
-            console.log(arrayBuffer.getChannelData(0));
-            // console.log(peaks);
-            // console.log(intervalsBetweenPeaks(peaks));
+        function tempo() {
+            var currSamples = new Float32Array(fftSize);
+            analyser.getFloatTimeDomainData(currSamples);
+
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            updatePeaks(currSamples, threshold);
+            drawBeats(peaks);
         }
+        
+        function updatePeaks(samples, threshold) {
 
-        function updateBuffer(arrayBuffer) {
-            var newSamples = new Float32Array(fftsize);
-            analyser.getFloatTimeDomainData(newSamples);
+            for(var i = 0; i < peaks.length; i++) {
+                peaks[i]-= fftSize;
+            }
 
-            if(filledSamples == arrayBuffer.length) { 
-                const oldSamples = arrayBuffer.getChannelData(0).slice(fftsize);
-                arrayBuffer.copyToChannel(oldSamples.concat(newSamples), 0);
+            //removes peaks no longer in the buffer
+            var peak = peaks[0];
+            while(peak < 0) {
+                peaks.shift();
+                peak = peaks[0];
+            }
+
+            if(samplesSinceLastBeat < sampleRate * minPeakGap) {
+                samplesSinceLastBeat += fftSize;
             }
             else {
-                arrayBuffer.copyToChannel(newSamples, 0, filledSamples);
-                filledSamples += fftsize;
+                for(var i = 0; i < samples.length; i++) {
+                    if(Math.abs(samples[i]) > threshold) {
+                        peaks.push(bufferLength - fftSize + i);
+                        samplesSinceLastBeat = 0;
+                        i = samples.length;
+                    }
+                }
             }
         }
         
-        function getPeaksAtThreshold(data, threshold) {
-        var peaksArray = [];
-            for(var i = 0; i < filledSamples; i++) {
-                if (data[i] > threshold) {
-                peaksArray.push(i);
-                    // Skip forward ~ 1/4s to get past this peak.
-                    i += 10000;
-                }
+        function drawBeats() {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            for(var peak of peaks) {
+                drawLine(peak / bufferLength * canvas.width);
             }
-            return peaksArray;
         }
-        
-        function intervalsBetweenPeaks(peaks) {
-            const roundingThreshold = 441 // 1/100 sec
-            var intervals = [];
-            for(var i = 0; i < peaks.length - 1; i++) {
-                intervals.push(peaks[1 + 1] - peaks[i]);
-            }
 
-            intervals.sort(function(a, b){return a - b});
-            var intervalCounts = [{interval: intervals[0], count: 1}];
-            var currInterval = intervalCounts[0];
-            for(var i = 1; i < intervals.length; i++) {
-                if(Math.abs(intervals[i] - currInterval.interval) < roundingThreshold) {
-                    currInterval.count++;
-                }
-                else {
-                    currInterval = {interval: intervals[1], count: 1}
-                    intervalCounts.push(currInterval);
-                }
-            }
-
-            intervals.forEach(function(interval, index) {intervals[index] = interval / 60}); //convert to seconds
-            return intervals;
+        function drawLine(x) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.offsetHeight - padding)
+            ctx.stroke();
+            ctx.closePath();
         }
     })
     .catch(function(err) {
