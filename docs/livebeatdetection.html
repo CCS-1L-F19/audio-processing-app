@@ -49,7 +49,7 @@
         const sampleRate = 44100;
         const fftSize = 2048;
         const channels = 1;
-        const threshold = 0.01;
+        const threshold = 0.5;
         const minPeakGap = 0.25;
         var samplesSinceLastBeat = sampleRate * minPeakGap;
         const bufferLength = 1000 * fftSize;
@@ -59,7 +59,7 @@
         var analyser = audioCtx.createAnalyser();
         analyser.fftSize = fftSize;
         var filter = audioCtx.createBiquadFilter();
-        filter.type = "highpass";
+        filter.type = "lowpass";
     
         source.connect(filter);
         filter.connect(analyser);
@@ -82,12 +82,29 @@
         var ctx = canvas.getContext("2d");
         ctx.scale(dpr, dpr);
         ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1;
+
+        var averageSampleArray = [];
+        var averageSample;
 
         window.setInterval(tempo, 1000 * fftSize / sampleRate);
+        window.setInterval(logAverageSamples, 1000);
+
+        function logAverageSamples() {
+            console.log(averageSample);
+        }
         
         function tempo() {
             var currSamples = new Float32Array(fftSize);
             analyser.getFloatTimeDomainData(currSamples);
+
+            averageSample = currSamples.reduce((sum, currentValue) => sum + currentValue) / currSamples.length;
+            if(averageSampleArray.length == 20) {
+                averageSampleArray.shift();
+            }
+            averageSampleArray.push(averageSample);
+
+            averageSample = averageSampleArray.reduce((sum, currentValue) => sum + currentValue) / averageSampleArray.length;
 
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             updatePeaks(currSamples, threshold);
