@@ -18,7 +18,15 @@
     <div id = "tempo_container" class = "container-fluid text-light text-center">
         <h1 class = "center">Live Beat Detection</h1>
         <br>
-        <canvas id = "beatCanvas" class="p-3 mb-2 bg-dark rounded"></canvas>
+        <div class = "row">
+            <div class = "col">
+                <canvas id = "beatCanvas" class="p-3 mb-2 bg-dark rounded"></canvas>
+            </div>
+            <div class = "col">
+                <h1 id = "bpm">bpm: </h1>
+            </div>
+            
+        </div>
     </div>
   </body>
 
@@ -47,101 +55,144 @@
     .then(function(stream) {
 
         const sampleRate = 44100;
-        const fftSize = 2048;
+        const fftSize = 16384;
         const channels = 1;
-        const threshold = 0.5;
-        const minPeakGap = 0.25;
-        var samplesSinceLastBeat = sampleRate * minPeakGap;
-        const bufferLength = 1000 * fftSize;
+        const cutoffRatio = .9 // fraction of peaks within each division of length fftSize that will not be discarded
+        const redrawRate = 20;
+        const threshold = 0;
+        
+        const bufferLength = 100 * fftSize;
 
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
         analyser.fftSize = fftSize;
-        var filter = audioCtx.createBiquadFilter();
-        filter.type = "lowpass";
-    
-        source.connect(filter);
-        filter.connect(analyser);
+
+        //isolate kick drum
+        var lowpass = audioCtx.createBiquadFilter();
+        lowpass.type = "lowpass";
+        lowpass.Q.value = 1;
+        lowpass.frequency.value = 150;
+        
+        // var highpass = audioCtx.createBiquadFilter();
+        // highpass.type = "highpass";
+        // highpass.Q.value = 1;
+        // highpass.frequency.value = 100;
+        
+        source.connect(lowpass);
+        // lowpass.connect(highpass);
+        // highpass.connect(analyser);
+        lowpass.connect(analyser);
+
+        // source.connect(analyser);
 
         var peaks = [];
+        var beats = [];
 
         // canvas init
         var canvas = document.getElementById("beatCanvas");
         const dpr = window.devicePixelRatio || 1;
         const padding = 20;
-        // canvas.width = canvas.offsetWidth * dpr;
-        // canvas.height = (canvas.offsetHeight + padding * 2) * dpr;
-
         canvas.style.width ='100%';
         canvas.style.height='100%';
         // ...then set the internal size to match
         canvas.width  = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
-
         var ctx = canvas.getContext("2d");
         ctx.scale(dpr, dpr);
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 1;
 
-        var averageSampleArray = [];
-        var averageSample;
-
-        window.setInterval(tempo, 1000 * fftSize / sampleRate);
-        window.setInterval(logAverageSamples, 1000);
-
-        function logAverageSamples() {
-            console.log(averageSample);
-        }
+    
+        window.setInterval(sample, 1000 * fftSize / sampleRate);
+        window.setInterval(redraw, 1000 / redrawRate);
         
-        function tempo() {
+        function sample() {
             var currSamples = new Float32Array(fftSize);
             analyser.getFloatTimeDomainData(currSamples);
-
-            averageSample = currSamples.reduce((sum, currentValue) => sum + currentValue) / currSamples.length;
-            if(averageSampleArray.length == 20) {
-                averageSampleArray.shift();
+            updatePeaks(currSamples);
+            beats = getBeats();
+            //drawBeats(beats);
+            const intervals = getIntervals(beats);
+            console.log(intervals);
+            if(intervals[0] && intervals[0].count > 10) {
+                document.getElementById("bpm").innerHTML = intervals[0].tempo + "bpm";
+            } else {
+                document.getElementById("bpm").innerHTML = "No tempo identified";
             }
-            averageSampleArray.push(averageSample);
-
-            averageSample = averageSampleArray.reduce((sum, currentValue) => sum + currentValue) / averageSampleArray.length;
-
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            updatePeaks(currSamples, threshold);
-            drawBeats(peaks);
+            
         }
         
-        function updatePeaks(samples, threshold) {
+        function getBeats() {
+            var beats = Array.from(peaks);
+            // sort by volume ascending
+            beats.sort((a, b) => b.vol - a.vol);
+            // cut off lower volume peaks
+            beats = beats.splice(0, beats.length * cutoffRatio);
+            // sort by position ascending
+            beats.sort((a, b) => a.pos - b.pos);
+            return beats;
+        }
 
+        function updatePeaks(samples) {
             for(var i = 0; i < peaks.length; i++) {
-                peaks[i]-= fftSize;
+                peaks[i].pos -= fftSize;
             }
 
-            //removes peaks no longer in the buffer
+            // removes peaks no longer in the buffer
             var peak = peaks[0];
-            while(peak < 0) {
+            while(peaks.length > 0 && peak.pos < 0) {
                 peaks.shift();
                 peak = peaks[0];
             }
-
-            if(samplesSinceLastBeat < sampleRate * minPeakGap) {
-                samplesSinceLastBeat += fftSize;
-            }
-            else {
-                for(var i = 0; i < samples.length; i++) {
-                    if(Math.abs(samples[i]) > threshold) {
-                        peaks.push(bufferLength - fftSize + i);
-                        samplesSinceLastBeat = 0;
-                        i = samples.length;
-                    }
-                }
+            
+            const maxSampleIndex = samples.reduce((maxIndex, curr, currIndex, arr) => curr > arr[maxIndex] ? currIndex : maxIndex, 0);
+            if(samples[maxSampleIndex] > threshold) {
+                peaks.push({pos: bufferLength - fftSize + maxSampleIndex, vol: samples[maxSampleIndex]});
             }
         }
+
+        function getIntervals(beats) {
         
-        function drawBeats() {
+            var intervals = [];
+            beats.forEach(
+                function(beat, index) {
+                    for(var i = 1; i < 10 && i + index < beats.length; i++) {
+                        var tempo = (60 * sampleRate) / (beats[index + i].pos - beat.pos);
+
+                        while (tempo < 90) {
+                            tempo *= 2;
+                        }
+
+                        while (tempo > 180) {
+                            tempo /= 2;
+                        }
+
+                        tempo = Math.round(tempo);
+
+                        var existingInterval = intervals.find(interval => interval.tempo === tempo);
+                        if(existingInterval) {
+                            existingInterval.count++;
+                        } else {
+                            intervals.push({tempo: tempo, count: 1});
+                        }
+                    }
+                }
+            );
+
+            intervals.sort((a, b) => b.count - a.count);
+            return intervals;
+        }
+        
+         function redraw() {
+            drawBeats(beats);
+            // beats.forEach(beat => beat.pos -= (sampleRate / redrawRate))
+        }
+
+        function drawBeats(beats) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            for(var peak of peaks) {
-                drawLine(peak / bufferLength * canvas.width);
+            for(var beat of beats) {
+                drawLine(beat.pos / bufferLength * canvas.width);
             }
         }
 
