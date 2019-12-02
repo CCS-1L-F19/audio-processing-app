@@ -43,13 +43,6 @@
     const webkit = !!ua.match(/WebKit/i);
     return iOS && webkit && !ua.match(/CriOS/i);
   }
-
-  var waveformArray;
-  if(iOSSafari) {
-    waveformArray = new Uint8Array(fftsize);
-  } else {
-     waveformArray = new Float32Array(fftsize);
-  }
   
   var autocorrelationArray = new Array(graphresolution);
   for(var i = 0; i < autocorrelationArray.length; i++) {
@@ -102,13 +95,24 @@
         window.setInterval(updateGraph, 1000 / regraphrate);
 
         function updateGraph() {
+            var waveformArray = iOSSafari ? new Uint8Array(fftsize): new Float32Array(fftsize);
             var autocorrelationArray;
             if(iOSSafari) {
+              waveformArray = new Uint8Array(fftsize);
                 analyser.getByteTimeDomainData(waveformArray);
-                autocorrelationArray = getAutocorrelationByte(waveformArray);
+                autocorrelationArray = getAutocorrelation(waveformArray, 
+                  function(waveformArray, sample, shift, shiftstep) {
+                    return (waveformArray[sample] - 127) * (waveformArray[sample + shift * shiftstep] - 127) / 256;
+                  }
+                );
             } else {
-                analyser.getFloatTimeDomainData(waveformArray);
-                autocorrelationArray = getAutocorrelationFloat(waveformArray);
+              waveformArray = new Float32Array(fftsize);
+              analyser.getFloatTimeDomainData(waveformArray);
+              autocorrelationArray = getAutocorrelation(waveformArray,
+                function(waveformArray, sample, shift, shiftstep) {
+                      return waveformArray[sample] * waveformArray[sample + shift * shiftstep];
+                }
+              );
             }
         
             
@@ -118,26 +122,13 @@
             chart.draw(data, options);
         }
 
-        function getAutocorrelationFloat(waveformArray) {
+        function getAutocorrelation(waveformArray, correlationSumFunc) {
           var autocorrelationArray = new Array;
           var correlationsum;
           for(var shift = 0; shift < graphresolution; shift++) {
             correlationsum = 0;
             for(var sample = 0; sample < waveformArray.length / 2; sample++) {
-                correlationsum += waveformArray[sample] * waveformArray[sample + shift * shiftstep];
-            }
-            autocorrelationArray[shift] = [shift * shiftstep / samplerate, correlationsum];
-          }
-          return autocorrelationArray;
-        }
-
-        function getAutocorrelationByte(waveformArray) {
-          var autocorrelationArray = new Array;
-          var correlationsum;
-          for(var shift = 0; shift < graphresolution; shift++) {
-            correlationsum = 0;
-            for(var sample = 0; sample < waveformArray.length / 2; sample++) {
-                correlationsum += (waveformArray[sample] - 128) * (waveformArray[sample + shift * shiftstep] - 128) / 256;
+                correlationsum += correlationSumFunc(waveformArray, sample, shift, shiftstep);
             }
             autocorrelationArray[shift] = [shift * shiftstep / samplerate, correlationsum];
           }
