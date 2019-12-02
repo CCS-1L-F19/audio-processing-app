@@ -62,7 +62,7 @@
         const channels = 1;
         const cutoffRatio = .9 // fraction of peaks within each division of length fftSize that will not be discarded
         const redrawRate = 20;
-        const threshold = 0;
+        const threshold = .1;
         
         const bufferLength = 100 * fftSize;
 
@@ -103,7 +103,7 @@
         canvas.width  = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
         var ctx = canvas.getContext("2d");
-        ctx.scale(dpr, dpr);
+        // ctx.scale(dpr, dpr);
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 1;
     
@@ -111,9 +111,17 @@
         window.setInterval(redraw, 1000 / redrawRate);
         
         function sample() {
-            var currSamples = new Float32Array(fftSize);
-            analyser.getFloatTimeDomainData(currSamples);
-            updatePeaks(currSamples);
+            
+            if(iOSSafari) {
+                var currSamples = new Uint8Array(fftSize);
+                analyser.getByteTimeDomainData(currByteSamples);
+                updatePeaks(currSamples, threshold * 128 + 127); // scale and shift threshold to account for Uint8 values
+            } else {
+                var currSamples = new Float32Array(fftSize);
+                analyser.getFloatTimeDomainData(currSamples);
+                updatePeaks(currSamples, threshold);
+            }
+            
             beats = getBeats();
             //drawBeats(beats);
             const intervals = getIntervals(beats);
@@ -137,7 +145,7 @@
             return beats;
         }
 
-        function updatePeaks(samples) {
+        function updatePeaks(samples, threshold) {
             for(var i = 0; i < peaks.length; i++) {
                 peaks[i].pos -= fftSize;
             }
@@ -150,7 +158,7 @@
             }
             
             const maxSampleIndex = samples.reduce((maxIndex, curr, currIndex, arr) => curr > arr[maxIndex] ? currIndex : maxIndex, 0);
-            if(samples[maxSampleIndex] > threshold) {
+            if(samples[maxSampleIndex] >= threshold) {
                 peaks.push({pos: bufferLength - fftSize + maxSampleIndex, vol: samples[maxSampleIndex]});
             }
         }
@@ -166,11 +174,9 @@
                         while (tempo < 90) {
                             tempo *= 2;
                         }
-
                         while (tempo > 180) {
                             tempo /= 2;
                         }
-
                         tempo = Math.round(tempo);
 
                         var existingInterval = intervals.find(interval => interval.tempo === tempo);
