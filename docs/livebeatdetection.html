@@ -114,7 +114,7 @@
             
             if(iOSSafari) {
                 var currSamples = new Uint8Array(fftSize);
-                analyser.getByteTimeDomainData(currByteSamples);
+                analyser.getByteTimeDomainData(currSamples);
                 updatePeaks(currSamples, threshold * 128 + 127); // scale and shift threshold to account for Uint8 values
             } else {
                 var currSamples = new Float32Array(fftSize);
