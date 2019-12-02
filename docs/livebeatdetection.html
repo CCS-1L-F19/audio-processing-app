@@ -15,7 +15,6 @@
   </head>
 
   <body>
-<<<<<<< HEAD
     <div id = "tempo_container" class = "container-fluid text-light text-center" hidden>
         <h1 class = "center m-3">Live Beat Detection</h1>
         <div class = "row">
@@ -28,17 +27,6 @@
                     <h1 class = "col text-light" id = "bpm"></h1>
                 </div>
                 
-=======
-    <div id = "tempo_container" class = "container-fluid text-light text-center">
-        <h1 class = "center">Live Beat Detection</h1>
-        <br>
-        <div class = "row">
-            <div class = "col">
-                <canvas id = "beatCanvas" class="p-3 mb-2 bg-dark rounded"></canvas>
-            </div>
-            <div class = "col">
-                <h1 id = "bpm">bpm: </h1>
->>>>>>> 973fcd9882880a075db319d041b1f94a9a8b7bea
             </div>
             
         </div>
@@ -82,7 +70,6 @@
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
         analyser.fftSize = fftSize;
-<<<<<<< HEAD
 
         //isolate kick drum
         var lowpass = audioCtx.createBiquadFilter();
@@ -162,87 +149,6 @@
                 peak = peaks[0];
             }
             
-=======
-
-        //isolate kick drum
-        var lowpass = audioCtx.createBiquadFilter();
-        lowpass.type = "lowpass";
-        lowpass.Q.value = 1;
-        lowpass.frequency.value = 150;
-        
-        // var highpass = audioCtx.createBiquadFilter();
-        // highpass.type = "highpass";
-        // highpass.Q.value = 1;
-        // highpass.frequency.value = 100;
-        
-        source.connect(lowpass);
-        // lowpass.connect(highpass);
-        // highpass.connect(analyser);
-        lowpass.connect(analyser);
-
-        // source.connect(analyser);
-
-        var peaks = [];
-        var beats = [];
-
-        // canvas init
-        var canvas = document.getElementById("beatCanvas");
-        const dpr = window.devicePixelRatio || 1;
-        const padding = 20;
-        canvas.style.width ='100%';
-        canvas.style.height='100%';
-        // ...then set the internal size to match
-        canvas.width  = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-        var ctx = canvas.getContext("2d");
-        ctx.scale(dpr, dpr);
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 1;
-
-    
-        window.setInterval(sample, 1000 * fftSize / sampleRate);
-        window.setInterval(redraw, 1000 / redrawRate);
-        
-        function sample() {
-            var currSamples = new Float32Array(fftSize);
-            analyser.getFloatTimeDomainData(currSamples);
-            updatePeaks(currSamples);
-            beats = getBeats();
-            //drawBeats(beats);
-            const intervals = getIntervals(beats);
-            console.log(intervals);
-            if(intervals[0] && intervals[0].count > 10) {
-                document.getElementById("bpm").innerHTML = intervals[0].tempo + "bpm";
-            } else {
-                document.getElementById("bpm").innerHTML = "No tempo identified";
-            }
-            
-        }
-        
-        function getBeats() {
-            var beats = Array.from(peaks);
-            // sort by volume ascending
-            beats.sort((a, b) => b.vol - a.vol);
-            // cut off lower volume peaks
-            beats = beats.splice(0, beats.length * cutoffRatio);
-            // sort by position ascending
-            beats.sort((a, b) => a.pos - b.pos);
-            return beats;
-        }
-
-        function updatePeaks(samples) {
-            for(var i = 0; i < peaks.length; i++) {
-                peaks[i].pos -= fftSize;
-            }
-
-            // removes peaks no longer in the buffer
-            var peak = peaks[0];
-            while(peaks.length > 0 && peak.pos < 0) {
-                peaks.shift();
-                peak = peaks[0];
-            }
-            
->>>>>>> 973fcd9882880a075db319d041b1f94a9a8b7bea
             const maxSampleIndex = samples.reduce((maxIndex, curr, currIndex, arr) => curr > arr[maxIndex] ? currIndex : maxIndex, 0);
             if(samples[maxSampleIndex] > threshold) {
                 peaks.push({pos: bufferLength - fftSize + maxSampleIndex, vol: samples[maxSampleIndex]});
