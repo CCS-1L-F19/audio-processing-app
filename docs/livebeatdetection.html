@@ -15,22 +15,19 @@
   </head>
 
   <body>
-    <div id = "tempo_container" class = "container-fluid text-light text-center" hidden>
+    <div id = "tempo_container" class = "container-fluid text-light text-center vh-25" hidden>
         <h1 class = "center m-3">Live Beat Detection</h1>
         <div class = "row">
-            <div class = "w-75 h-25">
-                <canvas id = "beat_canvas" class="p-3 m-3 bg-dark rounded"></canvas>
+            <div class = "col-9 h-25">
+                <canvas id = "beat_canvas" class="p-3 bg-dark rounded"></canvas>
             </div>
-            <div class = "col">
-                <div class = "container vertical-center">
-                    <h1 class = "text-dark">Tempo: </h1>
-                    <h1 class = "col text-light" id = "bpm"></h1>
-                </div>
-                
+            <div class = "col-3 vertical-center h-25">
+                <h1 class = "text-dark">Tempo: </h1>
+                <h3 class = "col text-light" id = "bpm"></h3>
             </div>
-            
         </div>
     </div>
+    
   </body>
 
 <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
@@ -190,12 +187,12 @@
         }
 
         function getTempo(groups) {
-            groups = Array.from(groups);
+            
             if(groups.length == 0) {
                 return "No tempo identified";
             }
+            groups = Array.from(groups);
             groups.splice(5);
-            console.log(groups);
             const countSum = groups.reduce(
                 (sum, curr) => {
                     return sum + curr.count;
@@ -205,8 +202,8 @@
 
             const certainty = groups[0].count / countSum; //ratio between count for the top tempo and the top 5 tempos
             
-            console.log("sum: " + countSum)
-            console.log(certainty);
+            // console.log("sum: " + countSum)
+            // console.log(certainty);
 
             if(groups[0] && groups[0].count > 10 && certainty > minCertainty) {
                 return groups[0].tempo + "bpm with " + Math.round(certainty * 100) + "% certainty";
@@ -230,7 +227,7 @@
         function drawLine(x) {
             ctx.beginPath();
             ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height) // - padding)
+            ctx.lineTo(x, canvas.height)
             ctx.stroke();
             ctx.closePath();
         }
