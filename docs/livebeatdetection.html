@@ -96,14 +96,13 @@
         document.getElementById("tempo_container").hidden = false;
         var canvas = document.getElementById("beat_canvas");
         const dpr = window.devicePixelRatio || 1;
-        const padding = 20;
         canvas.style.width ='100%';
         canvas.style.height='100%';
         // ...then set the internal size to match
         canvas.width  = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
         var ctx = canvas.getContext("2d");
-        // ctx.scale(dpr, dpr);
+        ctx.scale(dpr, dpr);
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 1;
     
@@ -208,7 +207,7 @@
         function drawLine(x) {
             ctx.beginPath();
             ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.offsetHeight - padding)
+            ctx.lineTo(x, canvas.height) // - padding)
             ctx.stroke();
             ctx.closePath();
         }
