@@ -59,13 +59,15 @@
 
         const sampleRate = 44100;
         const fftSize = 16384;
+        const bufferLength = 100 * fftSize;
         const channels = 1;
         const cutoffRatio = .9 // fraction of peaks within each division of length fftSize that will not be discarded
         const redrawRate = 20;
-        const threshold = .1;
-        
-        const bufferLength = 100 * fftSize;
+        const volThreshold = .0;
 
+        const minCertainty = 0;
+        
+        
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
@@ -114,23 +116,19 @@
             if(iOSSafari) {
                 var currSamples = new Uint8Array(fftSize);
                 analyser.getByteTimeDomainData(currSamples);
-                updatePeaks(currSamples, threshold * 128 + 127); // scale and shift threshold to account for Uint8 values
+                updatePeaks(currSamples, volThreshold * 128 + 127); // scale and shift volThreshold to account for Uint8 values
             } else {
                 var currSamples = new Float32Array(fftSize);
                 analyser.getFloatTimeDomainData(currSamples);
-                updatePeaks(currSamples, threshold);
+                updatePeaks(currSamples, volThreshold);
             }
             
             beats = getBeats();
             //drawBeats(beats);
-            const intervals = getIntervals(beats);
-            console.log(intervals);
-            if(intervals[0] && intervals[0].count > 10) {
-                document.getElementById("bpm").innerHTML = intervals[0].tempo + "bpm";
-            } else {
-                document.getElementById("bpm").innerHTML = "No tempo identified";
-            }
-            
+            const groups = getTempoGroups(beats);
+            //console.log(groups);
+
+            document.getElementById("bpm").innerHTML = getTempo(groups);
         }
         
         function getBeats() {
@@ -144,7 +142,7 @@
             return beats;
         }
 
-        function updatePeaks(samples, threshold) {
+        function updatePeaks(samples, volThreshold) {
             for(var i = 0; i < peaks.length; i++) {
                 peaks[i].pos -= fftSize;
             }
@@ -157,14 +155,13 @@
             }
             
             const maxSampleIndex = samples.reduce((maxIndex, curr, currIndex, arr) => curr > arr[maxIndex] ? currIndex : maxIndex, 0);
-            if(samples[maxSampleIndex] >= threshold) {
+            if(samples[maxSampleIndex] >= volThreshold) {
                 peaks.push({pos: bufferLength - fftSize + maxSampleIndex, vol: samples[maxSampleIndex]});
             }
         }
 
-        function getIntervals(beats) {
-        
-            var intervals = [];
+        function getTempoGroups(beats) {
+            var groups = [];
             beats.forEach(
                 function(beat, index) {
                     for(var i = 1; i < 10 && i + index < beats.length; i++) {
@@ -178,18 +175,44 @@
                         }
                         tempo = Math.round(tempo);
 
-                        var existingInterval = intervals.find(interval => interval.tempo === tempo);
-                        if(existingInterval) {
-                            existingInterval.count++;
+                        var existingGroup = groups.find(group => group.tempo === tempo);
+                        if(existingGroup) {
+                            existingGroup.count++;
                         } else {
-                            intervals.push({tempo: tempo, count: 1});
+                            groups.push({tempo: tempo, count: 1});
                         }
                     }
                 }
             );
 
-            intervals.sort((a, b) => b.count - a.count);
-            return intervals;
+            groups.sort((a, b) => b.count - a.count);
+            return groups;
+        }
+
+        function getTempo(groups) {
+            groups = Array.from(groups);
+            if(groups.length == 0) {
+                return "No tempo identified";
+            }
+            groups.splice(5);
+            console.log(groups);
+            const countSum = groups.reduce(
+                (sum, curr) => {
+                    return sum + curr.count;
+                }, 
+                0
+            );
+
+            const certainty = groups[0].count / countSum; //ratio between count for the top tempo and the top 5 tempos
+            
+            console.log("sum: " + countSum)
+            console.log(certainty);
+
+            if(groups[0] && groups[0].count > 10 && certainty > minCertainty) {
+                return groups[0].tempo + "bpm with " + Math.round(certainty * 100) + "% certainty";
+            }
+
+            return "No tempo identified";
         }
         
          function redraw() {
