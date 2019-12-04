@@ -54,43 +54,6 @@
     navigator.mediaDevices.getUserMedia ({audio: true, video: false})
     .then(function(stream) {
 
-        const sampleRate = 44100;
-        const fftSize = 16384;
-        const bufferLength = 100 * fftSize;
-        const channels = 1;
-        const cutoffRatio = .9 // fraction of peaks within each division of length fftSize that will not be discarded
-        const redrawRate = 20;
-        const volThreshold = .0;
-
-        const minCertainty = 0;
-        
-        
-        var audioCtx = new AudioContext();
-        var source = audioCtx.createMediaStreamSource(stream);
-        var analyser = audioCtx.createAnalyser();
-        analyser.fftSize = fftSize;
-
-        //isolate kick drum
-        var lowpass = audioCtx.createBiquadFilter();
-        lowpass.type = "lowpass";
-        lowpass.Q.value = 1;
-        lowpass.frequency.value = 150;
-        
-        // var highpass = audioCtx.createBiquadFilter();
-        // highpass.type = "highpass";
-        // highpass.Q.value = 1;
-        // highpass.frequency.value = 100;
-        
-        source.connect(lowpass);
-        // lowpass.connect(highpass);
-        // highpass.connect(analyser);
-        lowpass.connect(analyser);
-
-        // source.connect(analyser);
-
-        var peaks = [];
-        var beats = [];
-
         // canvas init
         document.getElementById("tempo_container").hidden = false;
         var canvas = document.getElementById("beat_canvas");
@@ -104,7 +67,32 @@
         ctx.scale(dpr, dpr);
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 1;
-    
+
+
+        const sampleRate = 44100;
+        const fftSize = 32768;
+        const bufferLength = fftSize * 4 // 131072
+
+        const channels = 1;
+        const cutoffRatio = .9 // fraction of peaks within each division of length fftSize that will not be discarded
+        const redrawRate = 20;
+
+        //Haar wavelet
+        const transformWavelength = 2;
+        const motherWavelength = 2;
+        const decompScaling = Math.SQRT1_2
+        
+        var audioCtx = new AudioContext();
+        var source = audioCtx.createMediaStreamSource(stream);
+        var analyser = audioCtx.createAnalyser();
+        analyser.fftSize = fftSize;
+
+        var peaks = [];
+        var beats = [];
+
+        var arrayBuffer = audioCtx.createBuffer(channels, fftSize * 2, sampleRate);
+        var filledSamples = 0;
+
         window.setInterval(sample, 1000 * fftSize / sampleRate);
         window.setInterval(redraw, 1000 / redrawRate);
         
@@ -127,6 +115,222 @@
 
             document.getElementById("bpm").innerHTML = getTempo(groups);
         }
+
+        function updateBuffer(arrayBuffer) {
+            var newSamples = new Float32Array(fftsize);
+            analyser.getFloatTimeDomainData(newSamples);
+            if(filledSamples == arrayBuffer.length) { 
+                const oldSamples = arrayBuffer.getChannelData(0).slice(fftsize);
+                arrayBuffer.copyToChannel(oldSamples.concat(newSamples), 0);
+            }
+            else {
+                arrayBuffer.copyToChannel(newSamples, 0, filledSamples);
+                filledSamples += fftsize;
+            }
+        }
+
+        function tempo() {
+
+        }
+
+        function computeWindowTempo(samples) {
+            var aC = Float32Array(); // approximation coefficients
+            var dC = Float32Array(); // detail coefficients
+            var dCSum = Float32Array();
+            var dCMinLength = 0;
+            const levels = 4;
+            const maxDecimation = 2**levels-1;
+            const minIndex = Math.floor(60 / 220 * sampleRate / maxDecimation);
+            const maxIndex = Math.floor(60 / 40 *  sampleRate / maxDecimation);
+
+            // 4 Level DWT
+            for (var level = 0; level < levels; level++) {
+
+                // Apply DWT
+                
+                if (level == 0) {
+                    const coefficients = decompose(samples);
+                    const l = coefficients.length - 1;
+                    aC = coefficients[1].slice(0, coefficients[1].length/2);
+                    dC = coefficients[l].slice(coefficients[l].length/2, coefficients[l].length);
+                    dCMinLength = Math.floor(dC.length/maxDecimation) + 1
+                } else {
+                    const coefficients = decompose(aC);
+                    const l = coefficients.length - 1
+                    aC = coefficients[1].slice(0, coefficients([1].length/2);
+                    dC = coefficients[l].slice(coefficients[l].length/2, coefficients[l].length);
+                }
+
+                // Extract envelope from detail coefficients
+                //  1) Undersample
+                //  2) Absolute value
+                //  3) Subtract mean
+                const pace = Math.floor(2**(levels-level-1));
+                dC = Math.abs(undersample(dC, pace));
+                const mean = mean(dC);
+                dC.forEach((val, index) => dC[index]-= mean);
+
+                // Recombine detail coefficients
+                if (dCSum == null) {
+                    dCSum = dC.slice(0, dCMinLength)
+                } else {
+                    dCSum = addByElement(dC.slice(0, Math.min(dCMinLength, dC.length)), dCSum);
+                }
+            }
+        
+            // Add the last approximated data
+            aC = Math.abs(aC);
+            const mean = mean(aC);
+            aC.forEach((val, index) => aC[index]-= mean);
+            dCSum = addByElement(aC.slice(0, min(dCMinLength, dC.length)), dCSum);
+
+            // Autocorrelation
+            var correlated = autocorrelate(dCSum);
+            const correlatedTmp = correlated.slice(minIndex, maxIndex)
+
+            // Detect peak in correlated data
+            const location = detectPeak(correlatedTmp)
+
+            // Compute window BPM given the peak
+            const realLocation = minIndex + location
+            const windowBpm = 60 / realLocation * sampleRate / maxDecimation;
+            instantBpm.push(windowBpm);
+
+        }
+
+        // returns the location of the last positive global absolute maximum or the last global absolute maximum if there are no positive maxima
+        function detectPeak(arr) {
+            arr = Array.from(arr); 
+
+            var max = -Infinity;
+
+            arr.forEach(x => {
+                if (Math.abs(x) > max) {
+                    max = Math.abs(x);
+                }
+            });
+
+            var index = arr.findLastIndex(max);
+            if(index == -1) {
+                index = arr.findLastIndex(-max);
+            }
+
+
+            var location = -1;
+            var i = 0;
+            while (i < data.length && location == -1) {
+                if (data[i] == max) {
+                    location = i;
+                }
+                i = i + 1;
+            }
+
+            i = 0;
+            while (i < data.length && location == -1) {
+            if (data(i) == -max) {
+                location = i;
+            }
+            i = i + 1;
+            }
+            return location
+  
+        }
+
+        // calculates the mean of an array of numbers
+        function mean(arr) {
+            return arr.reduce((acc, curr) => acc + curr) / arr.length; 
+        }
+        
+        // arr2 must be at least as long as arr1
+        function addByElement(arr1, arr2) {
+            return arr1.map((val, index) => val + arr2[index]);
+        }
+
+        function undersample(arr, pace) {
+            var newArr;
+            arr.forEach((val, index) => {
+                if(index % pace == 0) {
+                    newArr.push(val);
+                }
+            });
+            return newArr;
+        }
+
+        function getAutocorrelation(arr) {
+          var correlated = new Array(arr.length);
+          var correlationsum;
+          for(var shift = 0; shift < arr.length; shift++) {
+            correlationsum = 0;
+            for(var i = 0; i < arr.length - shift; i++) {
+                correlationsum += arr[i] * arr[i + shift];
+            }
+            correlated[shift] = correlationSum;
+          }
+          return correlated;
+        }
+
+        function decompose(samples) {
+            var levels = Math.log2(samples.length) | 0; // bitwise operator converts to int
+            samples.splice(2**levels); //sample length should be a power of 2 and be left intact
+            var decomp = new Array(levels + 1);
+            for(var p = 0; p < levels; p++) {
+                decomp[p] = forward(samples, p).splice(length); // splice necessary?
+            }
+            return decomp;
+
+        }
+
+        function forward(samples, level) {
+            var noOfLevels = Math.floor(Math.log2(samples.length));
+            var arrHilb = Array.from(samples);
+
+            var l = 0;
+            var h = arrHilb.length;
+            while( h >= transformWavelength && l < level ) {
+
+                var arrTempPart = wavelet_forward( arrHilb, h);
+                System.arraycopy( arrTempPart, 0, arrHilb, 0, h );
+                h = h /= 2;
+                l++;
+
+            } // levels
+
+            return arrHilb;
+
+        }
+
+        function wavelet_forward(arrTime, arrTimeLength) {
+            var arrHilb = new Float32Array(arrTimeLength);
+            
+
+
+            var h = arrHilb.length / 2; // .. -> 8 -> 4 -> 2 .. shrinks in each step by half wavelength
+            for(var i = 0; i < h; i++ ) {
+
+                arrHilb[i] = arrHilb[i + h] = 0.; // set to zero before sum up
+
+                for(var j = 0; j < motherWavelength; j++) {
+
+                    var k = 2*i + j; 
+                    while( k >= arrHilb.length ) {
+                        k -= arrHilb.length; // circulate over arrays if scaling and wavelet are are larger
+                    }
+                    
+                    arrHilb[i] += arrTime[k] * decompScaling; // low pass filter for the energy (approximation)
+                    arrHilb[i + h] += arrTime[k] * decompScaling; // high pass filter for the details
+
+                } // Sorting each step in patterns of: { scaling coefficients | wavelet coefficients }
+
+            } // h = 2^(p-1) | p = { 1, 2, .., N } .. shrinks in each step by half wavelength 
+
+            return arrHilb;
+        }
+
+        // -------------------------------
+        // -------------------------------
+        // -------------------------------
+        // -------------------------------
+        // -------------------------------
         
         function getBeats() {
             var beats = Array.from(peaks);
@@ -155,61 +359,6 @@
             if(samples[maxSampleIndex] >= volThreshold) {
                 peaks.push({pos: bufferLength - fftSize + maxSampleIndex, vol: samples[maxSampleIndex]});
             }
-        }
-
-        function getTempoGroups(beats) {
-            var groups = [];
-            beats.forEach(
-                function(beat, index) {
-                    for(var i = 1; i < 10 && i + index < beats.length; i++) {
-                        var tempo = (60 * sampleRate) / (beats[index + i].pos - beat.pos);
-
-                        while (tempo < 90) {
-                            tempo *= 2;
-                        }
-                        while (tempo > 180) {
-                            tempo /= 2;
-                        }
-                        tempo = Math.round(tempo);
-
-                        var existingGroup = groups.find(group => group.tempo === tempo);
-                        if(existingGroup) {
-                            existingGroup.count++;
-                        } else {
-                            groups.push({tempo: tempo, count: 1});
-                        }
-                    }
-                }
-            );
-
-            groups.sort((a, b) => b.count - a.count);
-            return groups;
-        }
-
-        function getTempo(groups) {
-            
-            if(groups.length == 0) {
-                return "No tempo identified";
-            }
-            groups = Array.from(groups);
-            groups.splice(5);
-            const countSum = groups.reduce(
-                (sum, curr) => {
-                    return sum + curr.count;
-                }, 
-                0
-            );
-
-            const certainty = groups[0].count / countSum; //ratio between count for the top tempo and the top 5 tempos
-            
-            // console.log("sum: " + countSum)
-            // console.log(certainty);
-
-            if(groups[0] && groups[0].count > 10 && certainty > minCertainty) {
-                return groups[0].tempo + "bpm with " + Math.round(certainty * 100) + "% certainty";
-            }
-
-            return "No tempo identified";
         }
         
          function redraw() {
