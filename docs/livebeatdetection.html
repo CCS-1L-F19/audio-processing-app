@@ -70,7 +70,7 @@
 
 
         const sampleRate = 44100;
-        const fftSize = 32768;
+        const fftSize = 16384;
         const bufferLength = fftSize * 4 // 131072
 
         const channels = 1;
@@ -81,11 +81,13 @@
         const transformWavelength = 2;
         const motherWavelength = 2;
         const decompScaling = Math.SQRT1_2
-        
+
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
-        analyser.fftsize = fftSize;
+        analyser.fftSize = fftSize;
+        
+        source.connect(analyser);
 
         var peaks = [];
         var beats = [];
@@ -118,6 +120,7 @@
         function updateBuffer() {
             var samples = new Float32Array(fftSize);
             analyser.getFloatTimeDomainData(samples);
+            console.log(samples)
             samples = Array.from(samples);
             if(arrayBuffer.length == bufferLength) { 
                 arrayBuffer.splice(0, fftSize);
@@ -126,7 +129,7 @@
             else {
                 arrayBuffer.push(...samples);
             }
-            console.log(arrayBuffer);
+            // console.log(arrayBuffer);
         }
 
         function tempo() {
