@@ -85,48 +85,48 @@
         var audioCtx = new AudioContext();
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
-        analyser.fftSize = fftSize;
+        analyser.fftsize = fftSize;
 
         var peaks = [];
         var beats = [];
 
-        var arrayBuffer = audioCtx.createBuffer(channels, fftSize * 2, sampleRate);
-        var filledSamples = 0;
+        var arrayBuffer = [];
 
-        window.setInterval(sample, 1000 * fftSize / sampleRate);
-        window.setInterval(redraw, 1000 / redrawRate);
+        window.setInterval(update, 1000 * fftSize / sampleRate);
+        window.setInterval(updateBuffer, 1000 * fftSize / sampleRate);
+        // window.setInterval(redraw, 1000 / redrawRate);
         
-        function sample() {
+        function update() {
+            // if(iOSSafari) {
+            //     var currSamples = new Uint8Array(fftSize);
+            //     analyser.getByteTimeDomainData(currSamples);
+            //     updatePeaks(currSamples, volThreshold * 128 + 127); // scale and shift volThreshold to account for Uint8 values
+            // } else {
+            //     var currSamples = new Float32Array(fftSize);
+            //     analyser.getFloatTimeDomainData(currSamples);
+            //     updatePeaks(currSamples, volThreshold);
+            // }
             
-            if(iOSSafari) {
-                var currSamples = new Uint8Array(fftSize);
-                analyser.getByteTimeDomainData(currSamples);
-                updatePeaks(currSamples, volThreshold * 128 + 127); // scale and shift volThreshold to account for Uint8 values
-            } else {
-                var currSamples = new Float32Array(fftSize);
-                analyser.getFloatTimeDomainData(currSamples);
-                updatePeaks(currSamples, volThreshold);
-            }
-            
-            beats = getBeats();
-            //drawBeats(beats);
-            const groups = getTempoGroups(beats);
-            //console.log(groups);
+            // beats = getBeats();
+            // //drawBeats(beats);
+            // const groups = getTempoGroups(beats);
+            // //console.log(groups);
 
-            document.getElementById("bpm").innerHTML = getTempo(groups);
+            // document.getElementById("bpm").innerHTML = getTempo(groups);
         }
 
-        function updateBuffer(arrayBuffer) {
-            var newSamples = new Float32Array(fftsize);
-            analyser.getFloatTimeDomainData(newSamples);
-            if(filledSamples == arrayBuffer.length) { 
-                const oldSamples = arrayBuffer.getChannelData(0).slice(fftsize);
-                arrayBuffer.copyToChannel(oldSamples.concat(newSamples), 0);
+        function updateBuffer() {
+            var samples = new Float32Array(fftSize);
+            analyser.getFloatTimeDomainData(samples);
+            samples = Array.from(samples);
+            if(arrayBuffer.length == bufferLength) { 
+                arrayBuffer.splice(0, fftSize);
+                arrayBuffer.push(...samples);
             }
             else {
-                arrayBuffer.copyToChannel(newSamples, 0, filledSamples);
-                filledSamples += fftsize;
+                arrayBuffer.push(...samples);
             }
+            console.log(arrayBuffer);
         }
 
         function tempo() {
@@ -157,7 +157,7 @@
                 } else {
                     const coefficients = decompose(aC);
                     const l = coefficients.length - 1
-                    aC = coefficients[1].slice(0, coefficients([1].length/2);
+                    aC = coefficients[1].slice(0, coefficients([1].length/2));
                     dC = coefficients[l].slice(coefficients[l].length/2, coefficients[l].length);
                 }
 
@@ -215,24 +215,7 @@
                 index = arr.findLastIndex(-max);
             }
 
-
-            var location = -1;
-            var i = 0;
-            while (i < data.length && location == -1) {
-                if (data[i] == max) {
-                    location = i;
-                }
-                i = i + 1;
-            }
-
-            i = 0;
-            while (i < data.length && location == -1) {
-            if (data(i) == -max) {
-                location = i;
-            }
-            i = i + 1;
-            }
-            return location
+            return index;
   
         }
 
