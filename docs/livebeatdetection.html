@@ -71,7 +71,7 @@
 
         const sampleRate = 44100;
         const fftSize = 32768;
-        const bufferLength = fftSize * 8; 
+        const bufferLength = fftSize * 4; 
 
         const channels = 1;
         const cutoffRatio = .9 // fraction of peaks within each division of length fftSize that will not be discarded
@@ -126,8 +126,8 @@
                 arrayBuffer.splice(0, fftSize);
                 arrayBuffer.push(...samples);
 
-                tempoBuffer.push(computeWindowTempo(arrayBuffer));
-                tempoBuffer.sort((a, b) => a-b);
+                computeWindowTempo(arrayBuffer);
+                // tempoBuffer.sort((a, b) => a-b);
                 //console.log(tempoBuffer[Math.floor(tempoBuffer.length / 2)])
 
 
@@ -199,37 +199,63 @@
             const correlatedTmp = correlated.slice(minIndex, maxIndex)
             
             // Detect peak in correlated data
-            const location = detectPeak(correlatedTmp)
-
+            const peaks = detectPeaks(correlatedTmp);
             // Compute window BPM given the peak
-            const realLocation = minIndex + location
-            const windowBpm = 60 * sampleRate / (realLocation * maxDecimation);
-
-            console.log("bpm:" + windowBpm);
-            return windowBpm;
-
-        }
-
-        // finds the absolute global max and returns the location of the first occurence,
-        // corresponding to the highest tempo within the range
-        function detectPeak(arr) {
-            console.log(arr);
-            arr = Array.from(arr); 
-
-            var max = -Infinity;
-
-            arr.forEach(x => {
-                if (Math.abs(x) > max) {
-                    max = Math.abs(x);
+            peaks.forEach((peak) => {
+                const realLocation = minIndex + peak.index;
+                const bpm = Math.floor(60 * sampleRate / (realLocation * maxDecimation));
+                var existingGroup = tempoBuffer.find(group => Math.abs(group.tempo - bpm) <= 1);
+                if(existingGroup) {
+                    existingGroup.count++;
+                } else {
+                    tempoBuffer.push({tempo: bpm, count: 1});
                 }
             });
             
-            var index = arr.indexOf(max);
-            if(index == -1) {
-                index = arr.indexOf(-max);
+            tempoBuffer.sort((a,b) => b.count - a.count);
+            console.log(tempoBuffer);
+            console.log(tempoBuffer[0])
+            
+
+            // const realLocation = minIndex + location
+            // const windowBpm = 60 * sampleRate / (realLocation * maxDecimation);
+
+            //console.log("bpm:" + windowBpm);
+            //return windowBpm;
+
+        }
+
+        function detectPeaks(arr) {
+            console.log(arr);
+            arr = Array.from(arr); 
+            arr.forEach((val, index) => arr[index] = Math.abs(val));
+
+            const chunkLength = Math.floor(arr.length / 10);
+
+            var maxima = [];
+            for(var i = 0; i < 10; i++) {
+                const chunk = arr.slice(i * chunkLength, (i + 1) * chunkLength);
+                const max = Math.max(...chunk);
+                maxima.push({index: chunkLength * i + chunk.indexOf(max), value: max});
             }
-            console.log("max: " + max);
-            return index;
+            maxima = maxima.sort((a, b) => b.value - a.value).slice(0, 3);
+            console.log(maxima)
+            return maxima
+
+            // var max = -Infinity;
+
+            // arr.forEach(x => {
+            //     if (Math.abs(x) > max) {
+            //         max = Math.abs(x);
+            //     }
+            // });
+            
+            // var index = arr.indexOf(max);
+            // if(index == -1) {
+            //     index = arr.indexOf(-max);
+            // }
+            // console.log("max: " + max);
+            // return index;
 
         }
 
