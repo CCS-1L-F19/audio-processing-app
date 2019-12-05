@@ -24,6 +24,8 @@
             <div class = "col-3 vertical-center h-25">
                 <h1 class = "text-dark">Tempo: </h1>
                 <h3 class = "col text-light" id = "bpm"></h3>
+                <br>
+                <button onclick = "reset()" class="button" role="alert">Reset</button>
             </div>
         </div>
     </div>
@@ -42,12 +44,9 @@
 
   const iOSSafari = isiOSSafari();
 
-  function isiOSSafari() {
-    const ua = window.navigator.userAgent;
-    const iOS = !!ua.match(/iP(ad|hone)/i);
-    const webkit = !!ua.match(/WebKit/i);
-    return iOS && webkit && !ua.match(/CriOS/i);
-  }
+  var peaks = [];
+  var beats = [];
+  var graphBeats = [];
 
   if (navigator.mediaDevices) {
     console.log('getUserMedia supported.');
@@ -56,13 +55,14 @@
 
         const sampleRate = 44100;
         const fftSize = 16384;
-        const bufferLength = 100 * fftSize;
+        const bufferLength = 50 * fftSize;
         const channels = 1;
         const cutoffRatio = .9 // fraction of peaks within each division of length fftSize that will not be discarded
         const redrawRate = 20;
-        const volThreshold = .0;
+        const volThreshold = 0;
+        const graphingVolThreshold = .05
 
-        const minCertainty = 0;
+        const minCertainty = .23;
         
         
         var audioCtx = new AudioContext();
@@ -87,9 +87,6 @@
         lowpass.connect(analyser);
 
         // source.connect(analyser);
-
-        var peaks = [];
-        var beats = [];
 
         // canvas init
         document.getElementById("tempo_container").hidden = false;
@@ -121,9 +118,8 @@
             }
             
             beats = getBeats();
-            //drawBeats(beats);
+            graphBeats = JSON.parse(JSON.stringify(beats)); // deep copy so positions can be updated for animation
             const groups = getTempoGroups(beats);
-            //console.log(groups);
 
             document.getElementById("bpm").innerHTML = getTempo(groups);
         }
@@ -213,8 +209,8 @@
         }
         
          function redraw() {
-            drawBeats(beats);
-            // beats.forEach(beat => beat.pos -= (sampleRate / redrawRate))
+            graphBeats.forEach(beat => beat.pos -= (sampleRate / redrawRate))
+            drawBeats(graphBeats.filter((beat) => beat.vol > graphingVolThreshold));
         }
 
         function drawBeats(beats) {
@@ -240,5 +236,20 @@
       alert('getUserMedia not supported on your browser!');
       console.log('getUserMedia not supported on your browser!');
     }
+
+
+  function isiOSSafari() {
+    const ua = window.navigator.userAgent;
+    const iOS = !!ua.match(/iP(ad|hone)/i);
+    const webkit = !!ua.match(/WebKit/i);
+    return iOS && webkit && !ua.match(/CriOS/i);
+  }
+
+  function reset() {
+      peaks = [];
+      beats = [];
+      graphBeats = [];
+
+  }
 </script>
 </html>
