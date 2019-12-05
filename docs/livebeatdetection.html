@@ -70,8 +70,8 @@
 
 
         const sampleRate = 44100;
-        const fftSize = 16384;
-        const bufferLength = fftSize * 4 // 131072
+        const fftSize = 32768;
+        const bufferLength = fftSize * 8; 
 
         const channels = 1;
         const cutoffRatio = .9 // fraction of peaks within each division of length fftSize that will not be discarded
@@ -86,13 +86,14 @@
         var source = audioCtx.createMediaStreamSource(stream);
         var analyser = audioCtx.createAnalyser();
         analyser.fftSize = fftSize;
-        
+
         source.connect(analyser);
 
         var peaks = [];
         var beats = [];
 
         var arrayBuffer = [];
+        var tempoBuffer = [];
 
         window.setInterval(update, 1000 * fftSize / sampleRate);
         window.setInterval(updateBuffer, 1000 * fftSize / sampleRate);
@@ -120,16 +121,20 @@
         function updateBuffer() {
             var samples = new Float32Array(fftSize);
             analyser.getFloatTimeDomainData(samples);
-            console.log(samples)
             samples = Array.from(samples);
             if(arrayBuffer.length == bufferLength) { 
                 arrayBuffer.splice(0, fftSize);
                 arrayBuffer.push(...samples);
+
+                tempoBuffer.push(computeWindowTempo(arrayBuffer));
+                tempoBuffer.sort((a, b) => a-b);
+                //console.log(tempoBuffer[Math.floor(tempoBuffer.length / 2)])
+
+
             }
             else {
                 arrayBuffer.push(...samples);
             }
-            // console.log(arrayBuffer);
         }
 
         function tempo() {
@@ -137,14 +142,14 @@
         }
 
         function computeWindowTempo(samples) {
-            var aC = Float32Array(); // approximation coefficients
-            var dC = Float32Array(); // detail coefficients
-            var dCSum = Float32Array();
+            var aC = []; // approximation coefficients
+            var dC = []; // detail coefficients
+            var dCSum = [];
             var dCMinLength = 0;
             const levels = 4;
-            const maxDecimation = 2**levels-1;
-            const minIndex = Math.floor(60 / 220 * sampleRate / maxDecimation);
-            const maxIndex = Math.floor(60 / 40 *  sampleRate / maxDecimation);
+            const maxDecimation = 2**(levels-1);
+            const minIndex = Math.floor(60 / 200 * sampleRate / maxDecimation); // 220 = max measureable bpm
+            const maxIndex = Math.floor(60 / 60 *  sampleRate / maxDecimation); // 60 = min measureable bpm
 
             // 4 Level DWT
             for (var level = 0; level < levels; level++) {
@@ -160,7 +165,7 @@
                 } else {
                     const coefficients = decompose(aC);
                     const l = coefficients.length - 1
-                    aC = coefficients[1].slice(0, coefficients([1].length/2));
+                    aC = coefficients[1].slice(0, coefficients[1].length/2);
                     dC = coefficients[l].slice(coefficients[l].length/2, coefficients[l].length);
                 }
 
@@ -168,41 +173,47 @@
                 //  1) Undersample
                 //  2) Absolute value
                 //  3) Subtract mean
-                const pace = Math.floor(2**(levels-level-1));
-                dC = Math.abs(undersample(dC, pace));
-                const mean = mean(dC);
+                const rate = Math.floor(2**(levels-level-1));
+                dC = undersample(dC, rate);
+                dC.forEach((val, index) => dC[index] = Math.abs(val));
+                const mean = arrMean(dC);
                 dC.forEach((val, index) => dC[index]-= mean);
+                
 
                 // Recombine detail coefficients
-                if (dCSum == null) {
-                    dCSum = dC.slice(0, dCMinLength)
+                if (dCSum.length == 0) {
+                    dCSum = dC.slice(0, dCMinLength);
                 } else {
                     dCSum = addByElement(dC.slice(0, Math.min(dCMinLength, dC.length)), dCSum);
                 }
             }
         
             // Add the last approximated data
-            aC = Math.abs(aC);
-            const mean = mean(aC);
+            aC.forEach((val, index) => aC[index] = Math.abs(val)); // take absolute value of all values
+            const mean = arrMean(aC);
             aC.forEach((val, index) => aC[index]-= mean);
-            dCSum = addByElement(aC.slice(0, min(dCMinLength, dC.length)), dCSum);
+            dCSum = addByElement(aC.slice(0, Math.min(dCMinLength, dC.length)), dCSum);
 
             // Autocorrelation
-            var correlated = autocorrelate(dCSum);
+            var correlated = getAutocorrelation(dCSum);
             const correlatedTmp = correlated.slice(minIndex, maxIndex)
-
+            
             // Detect peak in correlated data
             const location = detectPeak(correlatedTmp)
 
             // Compute window BPM given the peak
             const realLocation = minIndex + location
-            const windowBpm = 60 / realLocation * sampleRate / maxDecimation;
-            instantBpm.push(windowBpm);
+            const windowBpm = 60 * sampleRate / (realLocation * maxDecimation);
+
+            console.log("bpm:" + windowBpm);
+            return windowBpm;
 
         }
 
-        // returns the location of the last positive global absolute maximum or the last global absolute maximum if there are no positive maxima
+        // finds the absolute global max and returns the location of the first occurence,
+        // corresponding to the highest tempo within the range
         function detectPeak(arr) {
+            console.log(arr);
             arr = Array.from(arr); 
 
             var max = -Infinity;
@@ -212,54 +223,21 @@
                     max = Math.abs(x);
                 }
             });
-
-            var index = arr.findLastIndex(max);
+            
+            var index = arr.indexOf(max);
             if(index == -1) {
-                index = arr.findLastIndex(-max);
+                index = arr.indexOf(-max);
             }
-
+            console.log("max: " + max);
             return index;
-  
-        }
 
-        // calculates the mean of an array of numbers
-        function mean(arr) {
-            return arr.reduce((acc, curr) => acc + curr) / arr.length; 
-        }
-        
-        // arr2 must be at least as long as arr1
-        function addByElement(arr1, arr2) {
-            return arr1.map((val, index) => val + arr2[index]);
-        }
-
-        function undersample(arr, pace) {
-            var newArr;
-            arr.forEach((val, index) => {
-                if(index % pace == 0) {
-                    newArr.push(val);
-                }
-            });
-            return newArr;
-        }
-
-        function getAutocorrelation(arr) {
-          var correlated = new Array(arr.length);
-          var correlationsum;
-          for(var shift = 0; shift < arr.length; shift++) {
-            correlationsum = 0;
-            for(var i = 0; i < arr.length - shift; i++) {
-                correlationsum += arr[i] * arr[i + shift];
-            }
-            correlated[shift] = correlationSum;
-          }
-          return correlated;
         }
 
         function decompose(samples) {
-            var levels = Math.log2(samples.length) | 0; // bitwise operator converts to int
+            var levels = Math.floor(Math.log2(samples.length));
             samples.splice(2**levels); //sample length should be a power of 2 and be left intact
             var decomp = new Array(levels + 1);
-            for(var p = 0; p < levels; p++) {
+            for(var p = 0; p <= levels; p++) {
                 decomp[p] = forward(samples, p).splice(length); // splice necessary?
             }
             return decomp;
@@ -274,12 +252,13 @@
             var h = arrHilb.length;
             while( h >= transformWavelength && l < level ) {
 
-                var arrTempPart = wavelet_forward( arrHilb, h);
-                System.arraycopy( arrTempPart, 0, arrHilb, 0, h );
-                h = h /= 2;
+                var arrTempPart = wavelet_forward(arrHilb, h);
+                arrTempPart = arrTempPart.slice(0, h);
+                arrHilb = arrTempPart.concat(arrHilb.slice(h)); 
+                //System.arraycopy( arrTempPart, 0, arrHilb, 0, h );
+                h /= 2;
                 l++;
-
-            } // levels
+            } 
 
             return arrHilb;
 
@@ -287,8 +266,6 @@
 
         function wavelet_forward(arrTime, arrTimeLength) {
             var arrHilb = new Float32Array(arrTimeLength);
-            
-
 
             var h = arrHilb.length / 2; // .. -> 8 -> 4 -> 2 .. shrinks in each step by half wavelength
             for(var i = 0; i < h; i++ ) {
@@ -309,7 +286,40 @@
 
             } // h = 2^(p-1) | p = { 1, 2, .., N } .. shrinks in each step by half wavelength 
 
-            return arrHilb;
+            return Array.from(arrHilb);
+        }
+
+        // calculates the mean of an array of numbers
+        function arrMean(arr) {
+            return arr.reduce((acc, curr) => acc + curr) / arr.length; 
+        }
+        
+        // arr2 must be at least as long as arr1
+        function addByElement(arr1, arr2) {
+            return arr1.map((val, index) => val + arr2[index]);
+        }
+
+        function undersample(arr, rate) {
+            var newArr = [];
+            arr.forEach((val, index) => {
+                if(index % rate == 0) {
+                    newArr.push(val);
+                }
+            });
+            return newArr;
+        }
+
+        function getAutocorrelation(arr) {
+          var correlated = new Float32Array(arr.length);
+          var correlationSum;
+          for(var shift = 0; shift < arr.length; shift++) {
+            correlationSum = 0;
+            for(var i = 0; i < arr.length - shift; i++) {
+                correlationSum += arr[i] * arr[i + shift];
+            }
+            correlated[shift] = correlationSum;
+          }
+          return correlated;
         }
 
         // -------------------------------
@@ -368,7 +378,6 @@
         }
     })
     .catch(function(err) {
-        alert('The following getUserMedia error occured: ' + err);
         console.log('The following getUserMedia error occured: ' + err);
     });
   } else {
