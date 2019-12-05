@@ -97,25 +97,12 @@
 
         window.setInterval(update, 1000 * fftSize / sampleRate);
         window.setInterval(updateBuffer, 1000 * fftSize / sampleRate);
-        // window.setInterval(redraw, 1000 / redrawRate);
         
         function update() {
-            // if(iOSSafari) {
-            //     var currSamples = new Uint8Array(fftSize);
-            //     analyser.getByteTimeDomainData(currSamples);
-            //     updatePeaks(currSamples, volThreshold * 128 + 127); // scale and shift volThreshold to account for Uint8 values
-            // } else {
-            //     var currSamples = new Float32Array(fftSize);
-            //     analyser.getFloatTimeDomainData(currSamples);
-            //     updatePeaks(currSamples, volThreshold);
-            // }
-            
-            // beats = getBeats();
-            // //drawBeats(beats);
-            // const groups = getTempoGroups(beats);
-            // //console.log(groups);
-
-            // document.getElementById("bpm").innerHTML = getTempo(groups);
+        
+            if(!tempoBuffer.length == 0) {
+                document.getElementById("bpm").innerHTML = tempoBuffer[0].tempo;
+            }
         }
 
         function updateBuffer() {
@@ -127,19 +114,14 @@
                 arrayBuffer.push(...samples);
 
                 computeWindowTempo(arrayBuffer);
-                // tempoBuffer.sort((a, b) => a-b);
-                //console.log(tempoBuffer[Math.floor(tempoBuffer.length / 2)])
-
-
             }
             else {
                 arrayBuffer.push(...samples);
             }
+
+            console.log(arrayBuffer);
         }
 
-        function tempo() {
-
-        }
 
         function computeWindowTempo(samples) {
             var aC = []; // approximation coefficients
@@ -215,18 +197,11 @@
             tempoBuffer.sort((a,b) => b.count - a.count);
             console.log(tempoBuffer);
             console.log(tempoBuffer[0])
-            
-
-            // const realLocation = minIndex + location
-            // const windowBpm = 60 * sampleRate / (realLocation * maxDecimation);
-
-            //console.log("bpm:" + windowBpm);
-            //return windowBpm;
 
         }
 
         function detectPeaks(arr) {
-            console.log(arr);
+            //console.log(arr);
             arr = Array.from(arr); 
             arr.forEach((val, index) => arr[index] = Math.abs(val));
 
@@ -347,61 +322,7 @@
           }
           return correlated;
         }
-
-        // -------------------------------
-        // -------------------------------
-        // -------------------------------
-        // -------------------------------
-        // -------------------------------
         
-        function getBeats() {
-            var beats = Array.from(peaks);
-            // sort by volume ascending
-            beats.sort((a, b) => b.vol - a.vol);
-            // cut off lower volume peaks
-            beats = beats.splice(0, beats.length * cutoffRatio);
-            // sort by position ascending
-            beats.sort((a, b) => a.pos - b.pos);
-            return beats;
-        }
-
-        function updatePeaks(samples, volThreshold) {
-            for(var i = 0; i < peaks.length; i++) {
-                peaks[i].pos -= fftSize;
-            }
-
-            // removes peaks no longer in the buffer
-            var peak = peaks[0];
-            while(peaks.length > 0 && peak.pos < 0) {
-                peaks.shift();
-                peak = peaks[0];
-            }
-            
-            const maxSampleIndex = samples.reduce((maxIndex, curr, currIndex, arr) => curr > arr[maxIndex] ? currIndex : maxIndex, 0);
-            if(samples[maxSampleIndex] >= volThreshold) {
-                peaks.push({pos: bufferLength - fftSize + maxSampleIndex, vol: samples[maxSampleIndex]});
-            }
-        }
-        
-         function redraw() {
-            drawBeats(beats);
-            // beats.forEach(beat => beat.pos -= (sampleRate / redrawRate))
-        }
-
-        function drawBeats(beats) {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            for(var beat of beats) {
-                drawLine(beat.pos / bufferLength * canvas.width);
-            }
-        }
-
-        function drawLine(x) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height)
-            ctx.stroke();
-            ctx.closePath();
-        }
     })
     .catch(function(err) {
         console.log('The following getUserMedia error occured: ' + err);
